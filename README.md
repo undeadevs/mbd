@@ -36,15 +36,15 @@ Skills
 
 - Name
 - Element (Fire, Nature, Water)
-- Type (Attack, Heal, Block)
+- Type (Attack, Heal)
 - Value
-- Level To Attain
 - Turn Cooldown
 
 Monster Skills
 
 - Monster Id
 - Skill Id
+- Level To Attain
 
 Battles
 
@@ -62,8 +62,9 @@ Turns
 - Battle Id
 - Type (P1ayer1, Player2, Enemy)
 - Monster Id
-- Action (Skill, Switch, Forfeit)
+- Action (Skill, Block, Forfeit)
 - Monster Skill Id
+- Created At
 
 ---
 
