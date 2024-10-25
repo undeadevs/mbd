@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Monster Battle Den</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        print-color-adjust: exact;
+      }
+
+      body {
+        width: 100vw;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      img {
+        width: 100%;
+      }
+
+      .grid {
+        display: grid;
+      }
+
+      .justify-items-center {
+        justify-items: center;
+      }
+
+      @media print {
+        .page-break {
+          page-break-before: always;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h2 class="text-center">Monster Battle Den</h2>
+    <p class="text-center">Ilham Al Basith - 11221077</p>
+    <hr />
+    <br />
+    <h3 class="text-center">Use Case Diagram</h3>
+    <div class="grid justify-items-center">
+      <img src="./Use-Case-MBD.png" alt="use case" />
+    </div>
+    <br />
+    <div class="page-break"></div>
+    <h3 class="text-center">Entity Relationship Diagram</h3>
+    <div class="grid justify-items-center">
+      <img src="./ERD-MBD.png" alt="erd" />
+    </div>
+  </body>
+</html>
