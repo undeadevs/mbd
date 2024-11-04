@@ -7,6 +7,15 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `sessions` (
+  `id` VARCHAR(36) NOT NULL DEFAULT UUID(),
+  `user_id` INT(11) NOT NULL,
+  `expires_at` DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP() + INTERVAL 1 HOUR),
+  PRIMARY KEY (`id`),
+  KEY `s_user` (`user_id`),
+  CONSTRAINT `s_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `monsters` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
@@ -153,9 +162,29 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+    
+    IF(_username IS NULL OR _username="") THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'username cannot be empty';
+    END IF;
+    
+    IF(_password IS NULL OR LENGTH(_password)<8) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'password needs to be at least 8 characters';
+    END IF;
+
+    IF(SELECT _username IN (SELECT users.username FROM users)) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user with that username already exists';
+    END IF;
+
     INSERT INTO users (username, password, role) VALUES (_username, PASSWORD(_password), 'player');
 
-    CALL tame_monster(1, (SELECT LAST_INSERT_ID()), 1);
+    SET @registered_id = NULL;
+    SET @registered_id = (SELECT LAST_INSERT_ID());
+    CALL tame_monster(1, @registered_id, 1);
+    CALL set_frontliners(@registered_id, (SELECT LAST_INSERT_ID()), NULL, NULL, NULL, NULL);
+
+    SELECT @registered_id user_id;
+    SET @registered_id = NULL;
+    
     COMMIT;
 END$$
 DELIMITER ;
@@ -163,6 +192,7 @@ DELIMITER ;
 DELIMITER $$
 CREATE OR REPLACE PROCEDURE login(IN _username VARCHAR(255), IN _password TEXT)
 BEGIN
+    DECLARE l_sid VARCHAR(36) DEFAULT UUID();
     DECLARE l_id INT;
     DECLARE l_username VARCHAR(255);
     DECLARE l_role ENUM("player", "admin");
@@ -181,10 +211,29 @@ BEGIN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'username or password is incorrect';
     END IF;
 
+    INSERT INTO sessions (id, user_id) VALUES (l_sid, l_id);
+
     COMMIT;
-    SELECT l_id, l_username, l_role;
+    SELECT l_sid sid, l_id id, l_username username, l_role role;
 END$$
 DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE logout(IN _sid VARCHAR(36))
+BEGIN
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    SELECT is_authenticated(_sid);
+
+    DELETE FROM sessions WHERE sessions.id=_sid;
+
+    COMMIT; 
+END$$
 
 DELIMITER $$
 CREATE OR REPLACE PROCEDURE get_skills(
@@ -257,6 +306,7 @@ DELIMITER $$
 CREATE OR REPLACE PROCEDURE get_monsters(
     IN _limit INT(11), 
     IN _page INT(11), 
+    IN f_id INT(11), 
     IN f_name TEXT, 
     IN f_element TEXT 
 )
@@ -282,6 +332,7 @@ BEGIN
     SELECT COUNT(monsters.id) INTO l_count
     FROM monsters
     WHERE
+    IF(f_id IS NULL, TRUE, monsters.id = f_id) AND
     IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
     IF(f_element IS NULL, TRUE, monsters.element LIKE f_element);
 
@@ -295,18 +346,20 @@ BEGIN
     SET l_has_prev = l_page > 1;
     SET l_has_next = l_page < l_total_pages;
 
-    SELECT l_total_pages, l_has_prev, l_has_next;
+    SELECT l_total_pages total_pages, l_has_prev has_prev, l_has_next has_next;
 
     IF(l_limit = 0) THEN
 	SELECT monsters.*
 	FROM monsters
 	WHERE
+	IF(f_id IS NULL, TRUE, monsters.id = f_id) AND
 	IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, monsters.element LIKE f_element);
     ELSE
 	SELECT monsters.*
 	FROM monsters
 	WHERE
+	IF(f_id IS NULL, TRUE, monsters.id = f_id) AND
 	IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, monsters.element LIKE f_element)
 	LIMIT l_limit
@@ -802,7 +855,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE add_monster(_name VARCHAR(255), _element ENUM('fire', 'nature', 'water'), _base_health INT(11), _base_next_xp INT(11), _max_xp INT(11))
+CREATE OR REPLACE PROCEDURE add_monster(_sid VARCHAR(36), _name VARCHAR(255), _element VARCHAR(255), _base_health INT(11), _base_next_xp INT(11), _max_xp INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -810,7 +863,48 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    SELECT is_admin(_sid);
+
+    IF(_name IS NULL OR LENGTH(_name)=0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `name` is required';
+    END IF;
+
+    IF(_element IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `element` is required';
+    END IF;
+
+    IF(_element NOT IN ("fire", "nature", "water")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `element` has to be either "fire", "nature", or "water"';
+    END IF;
+
+    IF(_base_health IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `base_health` is required';
+    END IF;
+
+    IF(_base_health <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `base_health` has to be greater than 0';
+    END IF;
+
+    IF(_base_next_xp IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `base_next_xp` is required';
+    END IF;
+
+    IF(_base_next_xp <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `base_next_xp` has to be greater than 0';
+    END IF;
+
+    IF(_max_xp IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `max_xp` is required';
+    END IF;
+
+    IF(_max_xp < _base_next_xp) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `max_xp` has to be greater than `base_next_xp`';
+    END IF;
+
     INSERT INTO monsters (name, element, base_health, base_next_xp, max_xp) VALUES(_name, _element, _base_health, _base_next_xp, _max_xp);
+
+    SELECT LAST_INSERT_ID() as added_id;
     COMMIT;
 END$$
 DELIMITER ;
@@ -849,7 +943,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE edit_monster(_id INT(11),_name VARCHAR(255), _element ENUM('fire', 'nature', 'water'), _base_health INT(11), _base_next_xp INT(11), _max_xp INT(11))
+CREATE OR REPLACE PROCEDURE edit_monster(_sid VARCHAR(36), _id INT(11),_name VARCHAR(255), _element VARCHAR(255), _base_health INT(11), _base_next_xp INT(11), _max_xp INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -857,6 +951,41 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    SELECT is_admin(_sid);
+
+    IF((SELECT id FROM monsters WHERE id=_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster does not exist';
+    END IF;
+
+    IF(_element NOT IN ("fire", "nature", "water")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `element` has to be either "fire", "nature", or "water"';
+    END IF;
+
+    IF(_base_health <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `base_health` has to be greater than 0';
+    END IF;
+
+    IF(_base_next_xp <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `base_next_xp` has to be greater than 0';
+    END IF;
+
+    IF(
+	_max_xp < IFNULL(
+	    _base_next_xp, 
+	    (
+		SELECT 
+		monsters.base_next_xp 
+		FROM 
+		monsters 
+		WHERE 
+		monsters.id=_id
+	    )
+	)
+    ) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `max_xp` has to be greater than `base_next_xp`';
+    END IF;
+
     UPDATE monsters 
     SET 
     name = IFNULL(_name, name), 
@@ -915,7 +1044,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE delete_monster(_id INT(11))
+CREATE OR REPLACE PROCEDURE delete_monster(_sid VARCHAR(36), _id INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -923,6 +1052,13 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    SELECT is_admin(_sid);
+
+    IF((SELECT id FROM monsters WHERE id=_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster does not exist';
+    END IF;
+
     DELETE FROM monsters WHERE monsters.id=_id;
     COMMIT;
 END$$
@@ -996,6 +1132,9 @@ BEGIN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
     END IF;
 
+    IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=!_player_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player have to set atleast one frontliner';
+    END IF;
 
     IF((SELECT COUNT(battles.id) > 0 FROM battles WHERE (battles.player1_id = _player_id OR battles.player2_id = _player_id) AND battles.status="ongoing")) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'you already have an ongoing battle';
@@ -1039,6 +1178,22 @@ BEGIN
     end;
     START TRANSACTION;
 
+    IF((SELECT users.id FROM users WHERE users.id = _player1_id AND users.role = "player") IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+    END IF;
+
+    IF((SELECT users.id FROM users WHERE users.id = _player2_id AND users.role = "player") IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'requested user is not player';
+    END IF;
+
+    IF(_player1_id = _player2_id) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'cannot request a battle with yourself';
+    END IF;
+
+    IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=!_player_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player have to set atleast one frontliner';
+    END IF;
+
     INSERT INTO battle_requests (player1_id, player2_id, status) VALUES(_player1_id, _player2_id, "pending");
 
     COMMIT;
@@ -1069,7 +1224,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE reply_battle_request(IN _request_id INT(11), IN _reply ENUM("accepted", "rejected"), OUT battle_id INT(11))
+CREATE OR REPLACE PROCEDURE reply_battle_request(IN _request_id INT(11), IN _player_id INT(11), IN _reply ENUM("accepted", "rejected"), OUT battle_id INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -1077,6 +1232,38 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    IF((SELECT id FROM battle_requests WHERE id=_request_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'battle request does not exist';
+    END IF;
+
+    IF((SELECT id FROM battle_requests WHERE id=_request_id AND player1_id=_player_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player cannot accept their own battle request';
+    END IF;
+
+    IF((SELECT id FROM battle_requests WHERE id=_request_id AND player2_id=_player_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player is not the requested player';
+    END IF;
+
+    IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=_player_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player have to set atleast one frontliner';
+    END IF;
+
+    IF(
+	(
+	    SELECT 
+	    COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) 
+	    FROM frontliners 
+	    WHERE 
+	    player_id=(
+		SELECT player1_id 
+		FROM battle_requests 
+		WHERE battle_requests.id=_request_id
+	    )
+	) IS NULL
+    ) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'requesting player have to set atleast one frontliner';
+    END IF;
 
     UPDATE battle_requests SET status="expired" WHERE id=_request_id AND status="pending" AND CURRENT_TIMESTAMP() >= expires_at;
 
@@ -1707,6 +1894,50 @@ END$$
 DELIMITER ;
 
 -- FUNCTIONS
+DELIMITER $$
+CREATE OR REPLACE FUNCTION is_authenticated(IN _sid VARCHAR(36)) RETURNS INT(11)
+BEGIN
+    DECLARE l_user_id INT(11) DEFAULT NULL;
+
+    SELECT 
+    sessions.user_id INTO l_user_id
+    FROM sessions 
+    WHERE 
+    CURRENT_TIMESTAMP() < sessions.expires_at AND
+    sessions.id=_sid;
+
+    IF(l_user_id IS NULL) THEN
+	DELETE FROM sessions WHERE sessions.id=_sid;
+
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user not authenticated';
+    END IF;
+    
+    RETURN l_user_id;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE FUNCTION is_admin(IN _sid VARCHAR(36)) RETURNS BOOLEAN
+BEGIN
+    IF((SELECT users.role != "admin" FROM users WHERE users.id=is_authenticated(_sid)) = TRUE) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
+    END IF;
+
+    RETURN TRUE;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE FUNCTION is_player(IN _sid VARCHAR(36)) RETURNS BOOLEAN
+BEGIN
+    IF((SELECT users.role != "player" FROM users WHERE users.id=is_authenticated(_sid)) = TRUE) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
+    END IF;
+
+    RETURN TRUE;
+END$$
+DELIMITER ;
+
 DELIMITER $$
 CREATE OR REPLACE FUNCTION `calculate_tamed_next_xp`(IN tamed_id INT) RETURNS int(11)
 RETURN (
