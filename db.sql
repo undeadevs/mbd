@@ -154,6 +154,32 @@ DELIMITER ;
 
 -- PROCEDURES
 DELIMITER $$
+CREATE OR REPLACE PROCEDURE check_authenticated(_sid VARCHAR(36))
+BEGIN
+    START TRANSACTION;
+
+    IF(SELECT is_authenticated(_sid) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user not authenticated';
+    END IF;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE check_admin(_sid VARCHAR(36))
+BEGIN
+    START TRANSACTION;
+
+    IF(SELECT is_admin(_sid)) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
+    END IF;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
 CREATE OR REPLACE PROCEDURE register(_username VARCHAR(255), _password TEXT)
 BEGIN
     declare exit handler for sqlexception
@@ -228,7 +254,7 @@ BEGIN
     end;
     START TRANSACTION;
 
-    SELECT is_authenticated(_sid);
+    CALL check_authenticated(_sid);
 
     DELETE FROM sessions WHERE sessions.id=_sid;
 
@@ -868,7 +894,7 @@ BEGIN
     end;
     START TRANSACTION;
 
-    SELECT is_admin(_sid);
+    CALL check_admin(_sid);
 
     IF(_name IS NULL OR LENGTH(_name)=0) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `name` is required';
@@ -924,7 +950,7 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT is_admin(_sid);
+    CALL check_admin(_sid);
 
     IF(_name IS NULL OR LENGTH(_name)=0) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `name` is required';
@@ -998,7 +1024,7 @@ BEGIN
     end;
     START TRANSACTION;
 
-    SELECT is_admin(_sid);
+    CALL check_admin(_sid);
 
     IF((SELECT id FROM monsters WHERE id=_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster does not exist';
@@ -1054,7 +1080,7 @@ BEGIN
     end;
     START TRANSACTION;
 
-    SELECT is_admin(_sid);
+    CALL check_admin(_sid);
 
     IF((SELECT id FROM skills WHERE id=_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill does not exist';
@@ -1122,7 +1148,7 @@ BEGIN
     end;
     START TRANSACTION;
 
-    SELECT is_admin(_sid);
+    CALL check_admin(_sid);
 
     IF((SELECT id FROM monsters WHERE id=_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster does not exist';
@@ -1143,7 +1169,7 @@ BEGIN
     end;
     START TRANSACTION;
 
-    SELECT is_admin(_sid);
+    CALL check_admin(_sid);
 
     IF((SELECT id FROM skills WHERE id=_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill does not exist';
@@ -1982,11 +2008,9 @@ BEGIN
     CURRENT_TIMESTAMP() < sessions.expires_at AND
     sessions.id=_sid;
 
-    IF(l_user_id IS NULL) THEN
-	DELETE FROM sessions WHERE sessions.id=_sid;
-
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user not authenticated';
-    END IF;
+    DELETE FROM sessions
+    WHERE
+    CURRENT_TIMESTAMP() >= sessions.expires_at;
     
     RETURN l_user_id;
 END$$
@@ -1995,11 +2019,9 @@ DELIMITER ;
 DELIMITER $$
 CREATE OR REPLACE FUNCTION is_admin(IN _sid VARCHAR(36)) RETURNS BOOLEAN
 BEGIN
-    IF((SELECT users.role != "admin" FROM users WHERE users.id=is_authenticated(_sid)) = TRUE) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
-    END IF;
+    CALL check_authenticated(_sid);
 
-    RETURN TRUE;
+    RETURN (SELECT users.role = "admin" FROM users WHERE users.id=is_authenticated(_sid));
 END$$
 DELIMITER ;
 
