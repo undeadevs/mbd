@@ -5,36 +5,37 @@ import type {
    ResultSetHeader,
    RowDataPacket,
 } from "mysql2/promise";
-import { singleMonsterRouter } from "./[id]";
+import { singleSkillRouter } from "./[id]";
 import type { PaginationInfo } from "../types";
-import type { Monster } from "./types";
+import type { Skill } from "./types";
 
 const router = new Hono();
 
 router.get("/", async (c) => {
    const [procRes] = (await callProc(
-      "get_monsters",
+      "get_skills",
       c.req.query("limit") ? Number(c.req.query("limit")) : null,
       c.req.query("page") ? Number(c.req.query("page")) : null,
       null,
       c.req.query("filter:name") ?? null,
       c.req.query("filter:element") ?? null,
+      c.req.query("filter:type") ?? null,
    )) as unknown as [
-      [PaginationInfo[], Monster[], ResultSetHeader],
+      [PaginationInfo[], Skill[], ResultSetHeader],
       FieldPacket[],
    ];
    const paginationInfo = procRes[0][0];
-   const monstersData = procRes[1] as Monster[];
+   const skillsData = procRes[1] as Skill[];
 
    return c.json({
       data: {
          ...paginationInfo,
-         monsters: monstersData,
+         skills: skillsData,
       },
    });
 });
 
-interface AddedMonster extends RowDataPacket {
+interface AddedSkill extends RowDataPacket {
    added_id: number;
 }
 
@@ -43,17 +44,14 @@ router.post("/", async (c) => {
    const body = await c.req.json();
 
    const [procRes] = (await callProc(
-      "add_monster",
+      "add_skill",
       sid,
       body.name,
       body.element,
-      body.base_health,
-      body.base_next_xp,
-      body.max_xp,
-   )) as unknown as [
-      [unknown[], AddedMonster[], ResultSetHeader],
-      FieldPacket[],
-   ];
+      body.type,
+      body.value,
+      body.turn_cooldown,
+   )) as unknown as [[unknown[], AddedSkill[], ResultSetHeader], FieldPacket[]];
    return c.json({
       data: {
          ...procRes[1][0],
@@ -61,6 +59,6 @@ router.post("/", async (c) => {
    });
 });
 
-router.route("/:id", singleMonsterRouter);
+router.route("/:id", singleSkillRouter);
 
-export { router as monstersRouter };
+export { router as skillsRouter };

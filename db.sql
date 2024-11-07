@@ -239,6 +239,7 @@ DELIMITER $$
 CREATE OR REPLACE PROCEDURE get_skills(
     IN _limit INT(11), 
     IN _page INT(11), 
+    IN f_id INT(11), 
     IN f_name TEXT, 
     IN f_element TEXT, 
     IN f_type TEXT
@@ -265,6 +266,7 @@ BEGIN
     SELECT COUNT(skills.id) INTO l_count
     FROM skills
     WHERE
+    IF(f_id IS NULL, TRUE, skills.id = f_id) AND
     IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
     IF(f_element IS NULL, TRUE, skills.element LIKE f_element) AND
     IF(f_type IS NULL, TRUE, skills.type LIKE f_type);
@@ -285,6 +287,7 @@ BEGIN
 	SELECT skills.*
 	FROM skills
 	WHERE
+	IF(f_id IS NULL, TRUE, skills.id = f_id) AND
 	IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, skills.element LIKE f_element) AND
 	IF(f_type IS NULL, TRUE, skills.type LIKE f_type);
@@ -292,6 +295,7 @@ BEGIN
 	SELECT skills.*
 	FROM skills
 	WHERE
+	IF(f_id IS NULL, TRUE, skills.id = f_id) AND
 	IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, skills.element LIKE f_element) AND
 	IF(f_type IS NULL, TRUE, skills.type LIKE f_type)
@@ -910,15 +914,57 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE add_skill(_name VARCHAR(255), _element ENUM('fire', 'nature', 'water'), _type ENUM('attack', 'heal', 'block'), _value INT(11), _turn_cooldown INT(11))
+CREATE OR REPLACE PROCEDURE add_skill(_sid VARCHAR(36), _name VARCHAR(255), _element VARCHAR(255), _type VARCHAR(255), _value INT(11), _turn_cooldown INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
 	rollback;
 	RESIGNAL;
     end;
+
     START TRANSACTION;
+
+    SELECT is_admin(_sid);
+
+    IF(_name IS NULL OR LENGTH(_name)=0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `name` is required';
+    END IF;
+
+    IF(_element IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `element` is required';
+    END IF;
+
+    IF(_element NOT IN ("fire", "nature", "water")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `element` has to be either "fire", "nature", or "water"';
+    END IF;
+
+    IF(_type IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `type` is required';
+    END IF;
+
+    IF(_type NOT IN ("attack", "heal")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `type` has to be either "attack" or "heal"';
+    END IF;
+
+    IF(_value IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `value` is required';
+    END IF;
+
+    IF(_value <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `value` has to be greater than 0';
+    END IF;
+
+    IF(_turn_cooldown IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `turn_cooldown` is required';
+    END IF;
+
+    IF(_turn_cooldown < 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `turn_cooldown` has to be greater than or equal to 0';
+    END IF;
+
     INSERT INTO skills (name, element, type, value, turn_cooldown) VALUES(_name, _element, _type, _value, _turn_cooldown);
+
+    SELECT LAST_INSERT_ID() as added_id;
     COMMIT;
 END$$
 DELIMITER ;
@@ -999,7 +1045,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE edit_skill(_id INT(11), _name VARCHAR(255), _element ENUM('fire', 'nature', 'water'), _type ENUM('attack', 'heal'), _value INT(11), _turn_cooldown INT(11))
+CREATE OR REPLACE PROCEDURE edit_skill(_sid VARCHAR(36), _id INT(11), _name VARCHAR(255), _element VARCHAR(255), _type VARCHAR(255), _value INT(11), _turn_cooldown INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -1007,6 +1053,29 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    SELECT is_admin(_sid);
+
+    IF((SELECT id FROM skills WHERE id=_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill does not exist';
+    END IF;
+
+    IF(_element NOT IN ("fire", "nature", "water")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `element` has to be either "fire", "nature", or "water"';
+    END IF;
+
+    IF(_type NOT IN ("attack", "heal")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `type` has to be either "attack" or "heal"';
+    END IF;
+
+    IF(_value <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `value` has to be greater than 0';
+    END IF;
+
+    IF(_turn_cooldown < 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `value` has to be greater than or equal to 0';
+    END IF;
+
     UPDATE skills 
     SET
     name = IFNULL(_name, name), 
@@ -1065,7 +1134,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE delete_skill(_id INT(11))
+CREATE OR REPLACE PROCEDURE delete_skill(_sid VARCHAR(36), _id INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -1073,6 +1142,13 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    SELECT is_admin(_sid);
+
+    IF((SELECT id FROM skills WHERE id=_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill does not exist';
+    END IF;
+
     DELETE FROM skills WHERE skills.id=_id;
     COMMIT;
 END$$

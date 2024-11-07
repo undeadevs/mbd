@@ -1,32 +1,32 @@
 import { callProc } from "@/services/db";
 import { Hono } from "hono";
 import type { FieldPacket, ResultSetHeader } from "mysql2/promise";
-import type { Monster } from "../types";
+import type { Skill } from "../types";
 import { HTTPException } from "hono/http-exception";
-import { monsterSkillsRouter } from "./skills";
 
 const router = new Hono();
 
 router.get("/", async (c) => {
    const [procRes] = (await callProc(
-      "get_monsters",
+      "get_skills",
       1,
       1,
       c.req.param("id") ?? null,
       null,
       null,
-   )) as unknown as [[unknown[], Monster[], ResultSetHeader], FieldPacket[]];
-   const monsterData = procRes[1][0] as Monster;
+      null,
+   )) as unknown as [[unknown[], Skill[], ResultSetHeader], FieldPacket[]];
+   const skillData = procRes[1][0] as Skill;
 
-   if (!monsterData) {
+   if (!skillData) {
       throw new HTTPException(404, {
-         message: "Monster does not exist",
+         message: "Skill does not exist",
       });
    }
 
    return c.json({
       data: {
-         monster: monsterData,
+         monster: skillData,
       },
    });
 });
@@ -36,19 +36,19 @@ router.patch("/", async (c) => {
    const body = await c.req.json();
 
    await callProc(
-      "edit_monster",
+      "edit_skill",
       sid,
       c.req.param("id") ?? null,
       body.name ?? null,
       body.element ?? null,
-      body.base_health ?? null,
-      body.base_next_xp ?? null,
-      body.max_xp ?? null,
+      body.type ?? null,
+      body.value ?? null,
+      body.turn_cooldown ?? null,
    );
 
    return c.json({
       data: {
-         message: "Successfully edited monster",
+         message: "Successfully edited skill",
       },
    });
 });
@@ -56,15 +56,13 @@ router.patch("/", async (c) => {
 router.delete("/", async (c) => {
    const sid = c.req.header("X-Session-Id") || null;
 
-   await callProc("delete_monster", sid, c.req.param("id") ?? null);
+   await callProc("delete_skill", sid, c.req.param("id") ?? null);
 
    return c.json({
       data: {
-         message: "Successfully deleted monster",
+         message: "Successfully skill monster",
       },
    });
 });
 
-router.route("/skills", monsterSkillsRouter);
-
-export { router as singleMonsterRouter };
+export { router as singleSkillRouter };
