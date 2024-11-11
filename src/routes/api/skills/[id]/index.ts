@@ -7,7 +7,7 @@ import { HTTPException } from "hono/http-exception";
 const router = new Hono();
 
 router.get("/", async (c) => {
-   const [procRes] = (await callProc(
+   const { results } = await callProc<[unknown, Skill]>(
       "get_skills",
       1,
       1,
@@ -15,8 +15,8 @@ router.get("/", async (c) => {
       null,
       null,
       null,
-   )) as unknown as [[unknown[], Skill[], ResultSetHeader], FieldPacket[]];
-   const skillData = procRes[1][0] as Skill;
+   );
+   const skillData = results[1][0];
 
    if (!skillData) {
       throw new HTTPException(404, {

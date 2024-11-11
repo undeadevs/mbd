@@ -1,6 +1,5 @@
 import { callProc } from "@/services/db";
 import { Hono } from "hono";
-import type { FieldPacket, ResultSetHeader } from "mysql2/promise";
 import type { Monster } from "../types";
 import { HTTPException } from "hono/http-exception";
 import { monsterSkillsRouter } from "./skills";
@@ -8,15 +7,15 @@ import { monsterSkillsRouter } from "./skills";
 const router = new Hono();
 
 router.get("/", async (c) => {
-   const [procRes] = (await callProc(
+   const { results } = await callProc<[unknown, Monster]>(
       "get_monsters",
       1,
       1,
       c.req.param("id") ?? null,
       null,
       null,
-   )) as unknown as [[unknown[], Monster[], ResultSetHeader], FieldPacket[]];
-   const monsterData = procRes[1][0] as Monster;
+   );
+   const monsterData = results[1][0];
 
    if (!monsterData) {
       throw new HTTPException(404, {

@@ -12,19 +12,16 @@ import type { Monster } from "./types";
 const router = new Hono();
 
 router.get("/", async (c) => {
-   const [procRes] = (await callProc(
+   const { results } = await callProc<[PaginationInfo, Monster]>(
       "get_monsters",
       c.req.query("limit") ? Number(c.req.query("limit")) : null,
       c.req.query("page") ? Number(c.req.query("page")) : null,
       null,
       c.req.query("filter:name") ?? null,
       c.req.query("filter:element") ?? null,
-   )) as unknown as [
-      [PaginationInfo[], Monster[], ResultSetHeader],
-      FieldPacket[],
-   ];
-   const paginationInfo = procRes[0][0];
-   const monstersData = procRes[1] as Monster[];
+   );
+   const paginationInfo = results[0][0];
+   const monstersData = results[1];
 
    return c.json({
       data: {
@@ -42,7 +39,7 @@ router.post("/", async (c) => {
    const sid = c.req.header("X-Session-Id") || null;
    const body = await c.req.json();
 
-   const [procRes] = (await callProc(
+   const { results } = await callProc<[AddedMonster]>(
       "add_monster",
       sid,
       body.name,
@@ -50,10 +47,10 @@ router.post("/", async (c) => {
       body.base_health,
       body.base_next_xp,
       body.max_xp,
-   )) as unknown as [[AddedMonster[], ResultSetHeader], FieldPacket[]];
+   );
    return c.json({
       data: {
-         ...procRes[0][0],
+         ...results[0][0],
       },
    });
 });

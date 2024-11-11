@@ -12,7 +12,7 @@ import type { Skill } from "./types";
 const router = new Hono();
 
 router.get("/", async (c) => {
-   const [procRes] = (await callProc(
+   const { results } = await callProc<[PaginationInfo, Skill]>(
       "get_skills",
       c.req.query("limit") ? Number(c.req.query("limit")) : null,
       c.req.query("page") ? Number(c.req.query("page")) : null,
@@ -20,12 +20,9 @@ router.get("/", async (c) => {
       c.req.query("filter:name") ?? null,
       c.req.query("filter:element") ?? null,
       c.req.query("filter:type") ?? null,
-   )) as unknown as [
-      [PaginationInfo[], Skill[], ResultSetHeader],
-      FieldPacket[],
-   ];
-   const paginationInfo = procRes[0][0];
-   const skillsData = procRes[1] as Skill[];
+   );
+   const paginationInfo = results[0][0];
+   const skillsData = results[1];
 
    return c.json({
       data: {
@@ -43,7 +40,7 @@ router.post("/", async (c) => {
    const sid = c.req.header("X-Session-Id") || null;
    const body = await c.req.json();
 
-   const [procRes] = (await callProc(
+   const { results } = await callProc<[AddedSkill]>(
       "add_skill",
       sid,
       body.name,
@@ -51,10 +48,10 @@ router.post("/", async (c) => {
       body.type,
       body.value,
       body.turn_cooldown,
-   )) as unknown as [[AddedSkill[], ResultSetHeader], FieldPacket[]];
+   );
    return c.json({
       data: {
-         ...procRes[0][0],
+         ...results[0][0],
       },
    });
 });

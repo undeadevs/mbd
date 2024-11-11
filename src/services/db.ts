@@ -1,4 +1,9 @@
-import mysql, { type ProcedureCallPacket } from "mysql2/promise";
+import mysql, {
+   type ProcedureCallPacket,
+   type ResultSetHeader,
+   type RowDataPacket,
+} from "mysql2/promise";
+import type { TupleType } from "typescript";
 
 export const db = mysql.createPool({
    host: Bun.env.MYSQL_HOST || "localhost",
@@ -15,9 +20,34 @@ export const db = mysql.createPool({
    keepAliveInitialDelay: 0,
 });
 
-export async function callProc<T>(procName: string, ...procParams: unknown[]) {
-   return db.query<ProcedureCallPacket<T>>(
+export async function callProc<TResult extends (unknown | RowDataPacket)[]>(
+   procName: string,
+   ...procParams: unknown[]
+) {
+   const [procRes] = await db.query<ProcedureCallPacket>(
       `CALL ${procName}(${procParams.map((_) => "?").join(",")})`,
       procParams,
    );
+
+   type TypedResult<TTypes> = TTypes extends [infer TFirst, ...infer TRest]
+      ? [TFirst[], ...TypedResult<TRest>]
+      : TTypes extends [infer TFirst]
+        ? [TFirst[]]
+        : TTypes extends []
+          ? []
+          : never;
+
+   const res = {
+      results: [] as TypedResult<TResult>,
+      resultHeader: null as ResultSetHeader | null,
+   };
+   if (!Array.isArray(procRes)) {
+      res.resultHeader = procRes;
+      return res;
+   }
+
+   res.results = procRes.slice(0, procRes.length - 1) as TypedResult<TResult>;
+   res.resultHeader = procRes[procRes.length - 1] as ResultSetHeader;
+
+   return res;
 }
