@@ -171,7 +171,9 @@ CREATE OR REPLACE PROCEDURE check_admin(_sid VARCHAR(36))
 BEGIN
     START TRANSACTION;
 
-    IF(SELECT is_admin(_sid)) THEN
+    CALL check_authenticated(_sid);
+
+    IF(SELECT !is_admin(_sid)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
     END IF;
 
@@ -404,6 +406,7 @@ CREATE OR REPLACE PROCEDURE get_monster_skills(
     IN _monster_id INT(11),
     IN _limit INT(11), 
     IN _page INT(11), 
+    IN f_id INT(11), 
     IN f_name TEXT, 
     IN f_element TEXT
 )
@@ -431,6 +434,7 @@ BEGIN
     JOIN skills ON skills.id=monster_skills.skill_id
     WHERE
     monster_skills.monster_id = _monster_id AND
+    IF(f_id IS NULL, TRUE, monster_skills.id = f_id) AND
     IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
     IF(f_element IS NULL, TRUE, skills.element LIKE f_element);
 
@@ -447,19 +451,21 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown, monster_skills.level_to_attain
 	FROM monster_skills
 	JOIN skills ON skills.id=monster_skills.skill_id
 	WHERE
 	monster_skills.monster_id = _monster_id AND
+	IF(f_id IS NULL, TRUE, monster_skills.id = f_id) AND
 	IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, skills.element LIKE f_element);
     ELSE
-	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown, monster_skills.level_to_attain
 	FROM monster_skills
 	JOIN skills ON skills.id=monster_skills.skill_id
 	WHERE
 	monster_skills.monster_id = _monster_id AND
+	IF(f_id IS NULL, TRUE, monster_skills.id = f_id) AND
 	IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, skills.element LIKE f_element)
 	LIMIT l_limit
@@ -996,7 +1002,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE add_monster_skill(_monster_id INT(11), _skill_id INT(11), _level_to_attain INT(11))
+CREATE OR REPLACE PROCEDURE add_monster_skill(_sid VARCHAR(36), _monster_id INT(11), _skill_id INT(11), _level_to_attain INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -1005,11 +1011,23 @@ BEGIN
     end;
     START TRANSACTION;
 
+    CALL check_admin(_sid);
+
     IF((SELECT monsters.element FROM monsters WHERE monsters.id=_monster_id LIMIT 1)!=(SELECT skills.element FROM skills WHERE skills.id=_skill_id)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill element does not matched monster element';
     END IF;
 
+    IF(_level_to_attain IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `level_to_attain` is required';
+    END IF;
+
+    IF(_level_to_attain <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `level_to_attain` has to be greater than 0';
+    END IF;
+
     INSERT INTO monster_skills (monster_id, skill_id, level_to_attain) VALUES(_monster_id, _skill_id, _level_to_attain);
+
+    SELECT LAST_INSERT_ID() as added_id;
     COMMIT;
 END$$
 DELIMITER ;
@@ -1115,7 +1133,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE edit_monster_skill(_id INT(11), _monster_id INT(11), _skill_id INT(11), _level_to_attain INT(11))
+CREATE OR REPLACE PROCEDURE edit_monster_skill(_sid VARCHAR(36), _id INT(11), _monster_id INT(11), _skill_id INT(11), _level_to_attain INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -1124,8 +1142,14 @@ BEGIN
     end;
     START TRANSACTION;
 
+    CALL check_admin(_sid);
+
     IF((SELECT monsters.element FROM monsters WHERE monsters.id=_monster_id LIMIT 1)!=(SELECT skills.element FROM skills WHERE skills.id=_skill_id)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill element does not matched monster element';
+    END IF;
+
+    IF(_level_to_attain <= 0) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `level_to_attain` has to be greater than 0';
     END IF;
 
     UPDATE monster_skills 
@@ -1181,7 +1205,7 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE delete_monster_skill(_id INT(11))
+CREATE OR REPLACE PROCEDURE delete_monster_skill(_sid VARCHAR(36), _id INT(11))
 BEGIN
     declare exit handler for sqlexception
     begin
@@ -1189,6 +1213,13 @@ BEGIN
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    CALL check_admin(_sid);
+
+    IF((SELECT id FROM monster_skills WHERE id=_id) IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster skill does not exist';
+    END IF;
+
     DELETE FROM monster_skills WHERE monster_skills.id=_id;
     COMMIT;
 END$$
@@ -2019,8 +2050,6 @@ DELIMITER ;
 DELIMITER $$
 CREATE OR REPLACE FUNCTION is_admin(IN _sid VARCHAR(36)) RETURNS BOOLEAN
 BEGIN
-    CALL check_authenticated(_sid);
-
     RETURN (SELECT users.role = "admin" FROM users WHERE users.id=is_authenticated(_sid));
 END$$
 DELIMITER ;

@@ -51,10 +51,10 @@ router.post("/", async (c) => {
       body.type,
       body.value,
       body.turn_cooldown,
-   )) as unknown as [[unknown[], AddedSkill[], ResultSetHeader], FieldPacket[]];
+   )) as unknown as [[AddedSkill[], ResultSetHeader], FieldPacket[]];
    return c.json({
       data: {
-         ...procRes[1][0],
+         ...procRes[0][0],
       },
    });
 });

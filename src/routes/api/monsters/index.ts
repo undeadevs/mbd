@@ -50,13 +50,10 @@ router.post("/", async (c) => {
       body.base_health,
       body.base_next_xp,
       body.max_xp,
-   )) as unknown as [
-      [unknown[], AddedMonster[], ResultSetHeader],
-      FieldPacket[],
-   ];
+   )) as unknown as [[AddedMonster[], ResultSetHeader], FieldPacket[]];
    return c.json({
       data: {
-         ...procRes[1][0],
+         ...procRes[0][0],
       },
    });
 });
