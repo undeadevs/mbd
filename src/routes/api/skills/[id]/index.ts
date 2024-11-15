@@ -1,6 +1,5 @@
 import { callProc } from "@/services/db";
 import { Hono } from "hono";
-import type { FieldPacket, ResultSetHeader } from "mysql2/promise";
 import type { Skill } from "../types";
 import { HTTPException } from "hono/http-exception";
 

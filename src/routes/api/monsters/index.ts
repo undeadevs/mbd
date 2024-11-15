@@ -1,10 +1,6 @@
 import { callProc } from "@/services/db";
 import { Hono } from "hono";
-import type {
-   FieldPacket,
-   ResultSetHeader,
-   RowDataPacket,
-} from "mysql2/promise";
+import type { RowDataPacket } from "mysql2/promise";
 import { singleMonsterRouter } from "./[id]";
 import type { PaginationInfo } from "../types";
 import type { Monster } from "./types";

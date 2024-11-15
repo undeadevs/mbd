@@ -3,7 +3,6 @@ import mysql, {
    type ResultSetHeader,
    type RowDataPacket,
 } from "mysql2/promise";
-import type { TupleType } from "typescript";
 
 export const db = mysql.createPool({
    host: Bun.env.MYSQL_HOST || "localhost",
