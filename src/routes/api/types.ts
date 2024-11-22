@@ -1,7 +1,5 @@
-import type { RowDataPacket } from "mysql2/promise";
-
-export interface PaginationInfo extends RowDataPacket {
+export type PaginationInfo = {
    total_pages: number;
    has_prev: boolean;
    has_next: boolean;
-}
+};

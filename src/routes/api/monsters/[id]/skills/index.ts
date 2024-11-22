@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { singleMonsterSkillRouter } from "./[monster_skill_id]";
 import { callProc } from "@/services/db";
 import type { PaginationInfo } from "@/routes/api/types";
-import type { RowDataPacket } from "mysql2/promise";
 import type { MonsterSkill } from "./types";
 
 const router = new Hono();
@@ -29,9 +28,9 @@ router.get("/", async (c) => {
    });
 });
 
-interface AddedMonsterSkill extends RowDataPacket {
+type AddedMonsterSkill = {
    added_id: number;
-}
+};
 
 router.post("/", async (c) => {
    const sid = c.req.header("X-Session-Id") || null;

@@ -1,7 +1,6 @@
 import type { Skill } from "@/routes/api/skills/types";
-import type { RowDataPacket } from "mysql2/promise";
 
-export interface MonsterSkill extends RowDataPacket {
+export type MonsterSkill = {
    id: number;
    skill_id: Skill["id"];
    name: Skill["name"];
@@ -9,4 +8,4 @@ export interface MonsterSkill extends RowDataPacket {
    value: Skill["value"];
    turn_cooldown: Skill["turn_cooldown"];
    level_to_attain: number;
-}
+};

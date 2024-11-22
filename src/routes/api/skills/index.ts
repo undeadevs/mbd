@@ -1,6 +1,5 @@
 import { callProc } from "@/services/db";
 import { Hono } from "hono";
-import type { RowDataPacket } from "mysql2/promise";
 import { singleSkillRouter } from "./[id]";
 import type { PaginationInfo } from "../types";
 import type { Skill } from "./types";
@@ -28,9 +27,9 @@ router.get("/", async (c) => {
    });
 });
 
-interface AddedSkill extends RowDataPacket {
+type AddedSkill = {
    added_id: number;
-}
+};
 
 router.post("/", async (c) => {
    const sid = c.req.header("X-Session-Id") || null;
