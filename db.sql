@@ -476,11 +476,84 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE get_users(
+CREATE OR REPLACE PROCEDURE get_admins(
+    IN _sid VARCHAR(36),
     IN _limit INT(11), 
     IN _page INT(11), 
-    IN f_username TEXT, 
-    IN f_role TEXT 
+    IN f_id INT(11), 
+    IN f_username TEXT
+)
+BEGIN
+    DECLARE l_limit INT DEFAULT 10;
+    DECLARE l_page INT DEFAULT 1;
+    DECLARE l_count INT DEFAULT 0;
+    DECLARE l_total_pages INT DEFAULT 0;
+    DECLARE l_offset INT DEFAULT 0;
+    DECLARE l_has_prev BOOLEAN DEFAULT FALSE;
+    DECLARE l_has_next BOOLEAN DEFAULT FALSE;
+
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_admin(_sid);
+
+    SET l_limit = IFNULL(_limit, 10);
+    SET l_page = IFNULL(_page, 1);
+
+    SELECT COUNT(users.id) INTO l_count
+    FROM users
+    WHERE
+    IF(f_id IS NULL, TRUE, users.id = f_id) AND
+    IF(f_username IS NULL, TRUE, users.username LIKE f_username) AND
+    users.role="admin";
+
+    SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
+    IF(l_total_pages = 0) THEN
+	SET l_page = 0;
+    END IF;
+
+    SET l_offset = IF(l_page <= 0, 0, (l_page - 1) * l_limit);
+
+    SET l_has_prev = l_page > 1;
+    SET l_has_next = l_page < l_total_pages;
+
+    SELECT l_total_pages, l_has_prev, l_has_next;
+
+    IF(l_limit = 0) THEN
+	SELECT
+	users.id,
+	users.username
+	FROM users
+	WHERE
+	IF(f_id IS NULL, TRUE, users.id = f_id) AND
+	IF(f_username IS NULL, TRUE, users.username LIKE f_username) AND
+	users.role="admin";
+    ELSE
+	SELECT
+	users.id,
+	users.username
+	FROM users
+	WHERE
+	IF(f_id IS NULL, TRUE, users.id = f_id) AND
+	IF(f_username IS NULL, TRUE, users.username LIKE f_username) AND
+	users.role="admin"
+	LIMIT l_limit
+	OFFSET l_offset;
+    END IF;
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE get_players(
+    IN _limit INT(11), 
+    IN _page INT(11), 
+    IN f_id INT(11), 
+    IN f_username TEXT
 )
 BEGIN
     DECLARE l_limit INT DEFAULT 10;
@@ -504,8 +577,9 @@ BEGIN
     SELECT COUNT(users.id) INTO l_count
     FROM users
     WHERE
+    IF(f_id IS NULL, TRUE, users.id = f_id) AND
     IF(f_username IS NULL, TRUE, users.username LIKE f_username) AND
-    IF(f_role IS NULL, TRUE, users.role LIKE f_role);
+    users.role="player";
 
     SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
     IF(l_total_pages = 0) THEN
@@ -520,17 +594,23 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT users.*
+	SELECT
+	users.id,
+	users.username
 	FROM users
 	WHERE
+	IF(f_id IS NULL, TRUE, users.id = f_id) AND
 	IF(f_username IS NULL, TRUE, users.username LIKE f_username) AND
-	IF(f_role IS NULL, TRUE, users.role LIKE f_role);
+	users.role="player";
     ELSE
-	SELECT users.*
+	SELECT
+	users.id,
+	users.username
 	FROM users
 	WHERE
+	IF(f_id IS NULL, TRUE, users.id = f_id) AND
 	IF(f_username IS NULL, TRUE, users.username LIKE f_username) AND
-	IF(f_role IS NULL, TRUE, users.role LIKE f_role)
+	users.role="player"
 	LIMIT l_limit
 	OFFSET l_offset;
     END IF;
@@ -891,6 +971,42 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
+CREATE OR REPLACE PROCEDURE add_admin(_sid VARCHAR(36), _username VARCHAR(255), _password TEXT)
+BEGIN
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_admin(_sid);
+
+    IF(_username IS NULL OR _username="") THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'username cannot be empty';
+    END IF;
+    
+    IF(_password IS NULL OR LENGTH(_password)<8) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'password needs to be at least 8 characters';
+    END IF;
+
+    IF(SELECT _username IN (SELECT users.username FROM users)) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user with that username already exists';
+    END IF;
+
+    INSERT INTO users (username, password, role) VALUES (_username, PASSWORD(_password), 'player');
+
+    SET @added_id = NULL;
+    SET @added_id = (SELECT LAST_INSERT_ID());
+
+    SELECT @added_id user_id;
+    SET @added_id = NULL;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
 CREATE OR REPLACE PROCEDURE add_monster(_sid VARCHAR(36), _name VARCHAR(255), _element VARCHAR(255), _base_health INT(11), _base_next_xp INT(11), _max_xp INT(11))
 BEGIN
     declare exit handler for sqlexception
@@ -1221,6 +1337,59 @@ BEGIN
     END IF;
 
     DELETE FROM monster_skills WHERE monster_skills.id=_id;
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE delete_player(_sid VARCHAR(36), _id INT(11))
+BEGIN
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_admin(_sid);
+
+    IF((SELECT id FROM users WHERE id=_id AND role="player") IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player does not exist';
+    END IF;
+
+    DELETE FROM users WHERE users.id=_id AND role="player";
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE edit_profile(_sid VARCHAR(36), _username VARCHAR(255), _password TEXT)
+BEGIN
+    DECLARE l_user_id INT(11) DEFAULT NULL;
+
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_authenticated(_sid);
+    SELECT is_authenticated(_sid) INTO l_user_id;
+
+    IF(SELECT _username IN (SELECT users.username FROM users WHERE id!=l_user_id)) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user with that username already exists';
+    END IF;
+
+    IF(LENGTH(_password)<8) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'password needs to be at least 8 characters';
+    END IF;
+
+    UPDATE users 
+    SET
+    username = IFNULL(_username, username), 
+    password = IF(_password IS NOT NULL, PASSWORD(_password), password)
+    WHERE users.id=l_user_id;
     COMMIT;
 END$$
 DELIMITER ;

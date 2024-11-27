@@ -25,7 +25,7 @@ router.get("/", async (c) => {
 
    return c.json({
       data: {
-         monster: skillData,
+         skill: skillData,
       },
    });
 });
@@ -59,7 +59,7 @@ router.delete("/", async (c) => {
 
    return c.json({
       data: {
-         message: "Successfully skill monster",
+         message: "Successfully deleted skill",
       },
    });
 });
