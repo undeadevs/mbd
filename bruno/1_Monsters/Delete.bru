@@ -1,0 +1,15 @@
+meta {
+  name: Delete
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://localhost:5321/api/monsters/{{addedMonsterId}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}

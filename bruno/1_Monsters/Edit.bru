@@ -1,0 +1,21 @@
+meta {
+  name: Edit
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:5321/api/monsters/{{addedMonsterId}}
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}
+
+body:json {
+  {
+    "name": "Heheh"
+  }
+}

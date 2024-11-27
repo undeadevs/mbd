@@ -1,0 +1,15 @@
+meta {
+  name: Get All
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:5321/api/players?filter:username=%25pl%25
+  body: none
+  auth: none
+}
+
+params:query {
+  filter:username: %pl%
+}

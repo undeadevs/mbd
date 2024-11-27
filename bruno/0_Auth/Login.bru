@@ -1,0 +1,22 @@
+meta {
+  name: Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:5321/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "admin1",
+    "password": "adminpass1"
+  }
+}
+
+script:post-response {
+  if(res.body.data) bru.setVar("sid",res.body.data.sid);
+}

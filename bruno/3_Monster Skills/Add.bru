@@ -1,0 +1,40 @@
+meta {
+  name: Add
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:5321/api/monsters/{{monster.id}}/skills
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}
+
+body:json {
+  {
+    "skill_id": {{skill.id}},
+    "level_to_attain": 3
+  }
+}
+
+script:pre-request {
+  const monster = bru.getVar("monster");
+  
+  const resp = await axios.get("http://127.0.0.1:5321/api/skills?filter:element="+monster.element);
+  const skills = resp.data.data.skills;
+  const skill = skills[Math.floor(Math.random()*skills.length)];
+  bru.setVar("skill", skill);
+}
+
+script:post-response {
+  if(res.status===200){
+    const addedId = res.body.data.added_id;
+  
+    bru.setVar("addedMonsterSkillId",addedId);
+  }
+  
+}

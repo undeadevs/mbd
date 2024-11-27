@@ -1,0 +1,21 @@
+meta {
+  name: Edit
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:5321/api/monsters/{{monster.id}}/skills/{{addedMonsterSkillId}}
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}
+
+body:json {
+  {
+    "level_to_attain": 5
+  }
+}

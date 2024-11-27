@@ -1,0 +1,20 @@
+meta {
+  name: Get All
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:5321/api/monsters/{{monster.id}}/skills
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const axios = require("axios");
+  
+  const resp = await axios.get("http://127.0.0.1:5321/api/monsters");
+  const monsters = resp.data.data.monsters;
+  const monster = monsters[Math.floor(Math.random()*monsters.length)];
+  bru.setVar("monster", monster);
+}

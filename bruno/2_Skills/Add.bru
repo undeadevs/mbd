@@ -1,0 +1,34 @@
+meta {
+  name: Add
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:5321/api/skills
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}
+
+body:json {
+  {
+    "name": "Explit",
+    "element": "fire",
+    "type": "attack",
+    "value": 25,
+    "turn_cooldown": 0
+  }
+}
+
+script:post-response {
+  if(res.status===200){
+    const addedId = res.body.data.added_id;
+  
+    bru.setVar("addedSkillId",addedId);
+  }
+  
+}
