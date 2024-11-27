@@ -159,7 +159,7 @@ BEGIN
     START TRANSACTION;
 
     IF(SELECT is_authenticated(_sid) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user not authenticated';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User not authenticated';
     END IF;
 
     COMMIT;
@@ -174,7 +174,7 @@ BEGIN
     CALL check_authenticated(_sid);
 
     IF(SELECT !is_admin(_sid)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not admin';
     END IF;
 
     COMMIT;
@@ -192,15 +192,15 @@ BEGIN
     START TRANSACTION;
     
     IF(_username IS NULL OR _username="") THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'username cannot be empty';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Username cannot be empty';
     END IF;
     
     IF(_password IS NULL OR LENGTH(_password)<8) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'password needs to be at least 8 characters';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Password needs to be at least 8 characters';
     END IF;
 
     IF(SELECT _username IN (SELECT users.username FROM users)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user with that username already exists';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User with that username already exists';
     END IF;
 
     INSERT INTO users (username, password, role) VALUES (_username, PASSWORD(_password), 'player');
@@ -236,7 +236,7 @@ BEGIN
     WHERE users.username=_username AND users.password=PASSWORD(_password);
 
     IF(l_id IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'username or password is incorrect';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Username or password is incorrect';
     END IF;
 
     INSERT INTO sessions (id, user_id) VALUES (l_sid, l_id);
@@ -643,7 +643,7 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     SET l_limit = IFNULL(_limit, 10);
@@ -705,7 +705,7 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     SELECT * FROM frontliners WHERE frontliners.player_id = _player_id;
@@ -848,7 +848,7 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
 
@@ -983,15 +983,15 @@ BEGIN
     CALL check_admin(_sid);
 
     IF(_username IS NULL OR _username="") THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'username cannot be empty';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Username cannot be empty';
     END IF;
     
     IF(_password IS NULL OR LENGTH(_password)<8) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'password needs to be at least 8 characters';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Password needs to be at least 8 characters';
     END IF;
 
     IF(SELECT _username IN (SELECT users.username FROM users)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user with that username already exists';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User with that username already exists';
     END IF;
 
     INSERT INTO users (username, password, role) VALUES (_username, PASSWORD(_password), 'player');
@@ -1130,7 +1130,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT monsters.element FROM monsters WHERE monsters.id=_monster_id LIMIT 1)!=(SELECT skills.element FROM skills WHERE skills.id=_skill_id)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill element does not matched monster element';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Skill element does not matched monster element';
     END IF;
 
     IF(_level_to_attain IS NULL) THEN
@@ -1161,7 +1161,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT id FROM monsters WHERE id=_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Monster does not exist';
     END IF;
 
     IF(_element NOT IN ("fire", "nature", "water")) THEN
@@ -1217,7 +1217,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT id FROM skills WHERE id=_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Skill does not exist';
     END IF;
 
     IF(_element NOT IN ("fire", "nature", "water")) THEN
@@ -1261,7 +1261,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT monsters.element FROM monsters WHERE monsters.id=_monster_id LIMIT 1)!=(SELECT skills.element FROM skills WHERE skills.id=_skill_id)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill element does not matched monster element';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Skill element does not matched monster element';
     END IF;
 
     IF(_level_to_attain <= 0) THEN
@@ -1291,7 +1291,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT id FROM monsters WHERE id=_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Monster does not exist';
     END IF;
 
     DELETE FROM monsters WHERE monsters.id=_id;
@@ -1312,7 +1312,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT id FROM skills WHERE id=_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Skill does not exist';
     END IF;
 
     DELETE FROM skills WHERE skills.id=_id;
@@ -1333,7 +1333,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT id FROM monster_skills WHERE id=_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'monster skill does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Monster skill does not exist';
     END IF;
 
     DELETE FROM monster_skills WHERE monster_skills.id=_id;
@@ -1354,7 +1354,7 @@ BEGIN
     CALL check_admin(_sid);
 
     IF((SELECT id FROM users WHERE id=_id AND role="player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player does not exist';
     END IF;
 
     DELETE FROM users WHERE users.id=_id AND role="player";
@@ -1378,11 +1378,11 @@ BEGIN
     SELECT is_authenticated(_sid) INTO l_user_id;
 
     IF(SELECT _username IN (SELECT users.username FROM users WHERE id!=l_user_id)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user with that username already exists';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User with that username already exists';
     END IF;
 
     IF(LENGTH(_password)<8) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'password needs to be at least 8 characters';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Password needs to be at least 8 characters';
     END IF;
 
     UPDATE users 
@@ -1405,7 +1405,7 @@ BEGIN
     START TRANSACTION;
 
 	IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
 	END IF;
 
 	SET @hp = NULL;
@@ -1431,15 +1431,15 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=!_player_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player have to set atleast one frontliner';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
     IF((SELECT COUNT(battles.id) > 0 FROM battles WHERE (battles.player1_id = _player_id OR battles.player2_id = _player_id) AND battles.status="ongoing")) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'you already have an ongoing battle';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'You already have an ongoing battle';
     END IF;
 
     SELECT AVG(monsters.base_next_xp), MAX(monsters.base_next_xp), AVG(tamed_monsters.xp), MAX(tamed_monsters.xp) INTO @avg_next_xp, @max_next_xp, @avg_xp, @max_xp
@@ -1481,19 +1481,19 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player1_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     IF((SELECT users.id FROM users WHERE users.id = _player2_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'requested user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Requested user is not player';
     END IF;
 
     IF(_player1_id = _player2_id) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'cannot request a battle with yourself';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Cannot request a battle with yourself';
     END IF;
 
     IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=!_player_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player have to set atleast one frontliner';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
     INSERT INTO battle_requests (player1_id, player2_id, status) VALUES(_player1_id, _player2_id, "pending");
@@ -1513,7 +1513,7 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
 
@@ -1536,19 +1536,19 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT id FROM battle_requests WHERE id=_request_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'battle request does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle request does not exist';
     END IF;
 
     IF((SELECT id FROM battle_requests WHERE id=_request_id AND player1_id=_player_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player cannot accept their own battle request';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player cannot accept their own battle request';
     END IF;
 
     IF((SELECT id FROM battle_requests WHERE id=_request_id AND player2_id=_player_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player is not the requested player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player is not the requested player';
     END IF;
 
     IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=_player_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player have to set atleast one frontliner';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
     IF(
@@ -1564,16 +1564,16 @@ BEGIN
 	    )
 	) IS NULL
     ) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'requesting player have to set atleast one frontliner';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Requesting player have to set atleast one frontliner';
     END IF;
 
     UPDATE battle_requests SET status="expired" WHERE id=_request_id AND status="pending" AND CURRENT_TIMESTAMP() >= expires_at;
 
     SELECT player1_id, player2_id, status INTO @player1_id, @player2_id, @status FROM battle_requests WHERE id=_request_id;
     IF(@status = "expired") THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'request expired';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Request expired';
     ELSEIF(@status != "pending") THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'request was already accepted/rejected';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Request was already accepted/rejected';
     END IF;
 
     UPDATE battle_requests SET status=_reply WHERE id=_request_id AND status="pending";
@@ -1613,7 +1613,7 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     IF(
@@ -1627,7 +1627,7 @@ BEGIN
 	) 
 	IS NOT NULL
     ) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'frontliners cannot change while in battle';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Frontliners cannot change while in battle';
     END IF;
 
     IF(_tamed1_id IS NOT NULL AND (SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed1_id)) THEN
@@ -1652,7 +1652,7 @@ BEGIN
 	(_tamed3_id=_tamed4_id OR _tamed3_id=_tamed5_id) OR
 	(_tamed4_id=_tamed5_id)
     ) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'the same tamed monster cannot be in 2 or more frontliner slots';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'The same tamed monster cannot be in 2 or more frontliner slots';
     END IF;
 
     IF ((SELECT COUNT(frontliners.id)>0 FROM frontliners WHERE frontliners.player_id=_player_id)) THEN
@@ -1685,7 +1685,7 @@ BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     SET @enemon_id = NULL;
@@ -1817,7 +1817,7 @@ BEGIN
 	START TRANSACTION;
 
 	IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
 	END IF;
 
 	SELECT 
@@ -1871,20 +1871,20 @@ proc_turn:BEGIN
     START TRANSACTION;
 
     IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not player';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'battle does not exist';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle does not exist';
     END IF;
     IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id AND (battles.player1_id = _player_id OR battles.player2_id = _player_id)) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player is not in this battle';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player is not in this battle';
     END IF;
     IF((SELECT battles.status != "ongoing" FROM battles WHERE battles.id=_battle_id)) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'battle is already done';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle is already done';
     END IF;
     IF((SELECT tamed_monsters.id FROM tamed_monsters WHERE tamed_monsters.id=_tamed_id AND tamed_monsters.player_id = _player_id) IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'player does not own this tamed monster';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player does not own this tamed monster';
     END IF;
     IF(
 	(
@@ -1901,7 +1901,7 @@ proc_turn:BEGIN
 	    )
 	) IS NULL
     ) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'tamed monster is not in frontliners';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Tamed monster is not in frontliners';
     END IF;
 
     IF(
@@ -1913,7 +1913,7 @@ proc_turn:BEGIN
 	),
 	TRUE)
     ) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'tamed monster is not alive';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Tamed monster is not alive';
     END IF;
 
     IF(
@@ -1929,7 +1929,7 @@ proc_turn:BEGIN
 	    get_level_from_xp(monsters.id, tamed_monsters.xp) >= monster_skills.level_to_attain
 	) IS NULL
     ) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'tamed monster has/does not own this skill';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Tamed monster has/does not own this skill';
     END IF;
 
     SELECT 
@@ -1945,7 +1945,7 @@ proc_turn:BEGIN
 	ORDER BY turns.created_at DESC
 	LIMIT 1), !l_is_player1)) 
     THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'not player''s turn';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Not player''s turn';
     END IF;
 
     IF(_action="block") THEN
@@ -2022,7 +2022,7 @@ proc_turn:BEGIN
 		LIKE "%1%"
 	    )
 	) THEN
-	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'skill is in cooldown';
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Skill is in cooldown';
 	END IF;
     END IF;
 
@@ -2227,7 +2227,7 @@ DELIMITER $$
 CREATE OR REPLACE FUNCTION is_player(IN _sid VARCHAR(36)) RETURNS BOOLEAN
 BEGIN
     IF((SELECT users.role != "player" FROM users WHERE users.id=is_authenticated(_sid)) = TRUE) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'user is not admin';
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not admin';
     END IF;
 
     RETURN TRUE;
