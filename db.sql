@@ -156,11 +156,16 @@ DELIMITER ;
 DELIMITER $$
 CREATE OR REPLACE PROCEDURE check_authenticated(_sid VARCHAR(36))
 BEGIN
+    DECLARE l_user_id INT(11) DEFAULT NULL;
+
     START TRANSACTION;
 
-    IF(SELECT is_authenticated(_sid) IS NULL) THEN
+    SELECT is_authenticated(_sid) INTO l_user_id;
+    IF(l_user_id IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User not authenticated';
     END IF;
+
+    -- SELECT l_user_id user_id;
 
     COMMIT;
 END$$
@@ -175,6 +180,21 @@ BEGIN
 
     IF(SELECT !is_admin(_sid)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not admin';
+    END IF;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE check_player(_sid VARCHAR(36))
+BEGIN
+    START TRANSACTION;
+
+    CALL check_authenticated(_sid);
+
+    IF(SELECT is_admin(_sid)) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
     COMMIT;
@@ -571,6 +591,10 @@ BEGIN
     end;
     START TRANSACTION;
 
+    IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
+    END IF;
+
     SET l_limit = IFNULL(_limit, 10);
     SET l_page = IFNULL(_page, 1);
 
@@ -623,6 +647,7 @@ CREATE OR REPLACE PROCEDURE get_tamed_monsters(
     IN _player_id INT(11),
     IN _limit INT(11), 
     IN _page INT(11), 
+    IN f_id INT(11), 
     IN f_name TEXT, 
     IN f_element TEXT
 )
@@ -654,6 +679,7 @@ BEGIN
     JOIN monsters ON monsters.id = tamed_monsters.monster_id
     WHERE
     tamed_monsters.player_id = _player_id AND
+    IF(f_id IS NULL, TRUE, tamed_monsters.id = f_id) AND
     IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
     IF(f_element IS NULL, TRUE, monsters.element LIKE f_element);
 
@@ -675,6 +701,7 @@ BEGIN
 	JOIN monsters ON monsters.id = tamed_monsters.monster_id
 	WHERE
 	tamed_monsters.player_id = _player_id AND
+	IF(f_id IS NULL, TRUE, tamed_monsters.id = f_id) AND
 	IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, monsters.element LIKE f_element);
     ELSE
@@ -683,6 +710,7 @@ BEGIN
 	JOIN monsters ON monsters.id = tamed_monsters.monster_id
 	WHERE
 	tamed_monsters.player_id = _player_id AND
+	IF(f_id IS NULL, TRUE, tamed_monsters.id = f_id) AND
 	IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, monsters.element LIKE f_element)
 	LIMIT l_limit
@@ -1695,19 +1723,23 @@ BEGIN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Frontliners cannot change while in battle';
     END IF;
 
-    IF(_tamed1_id IS NOT NULL AND (SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed1_id)) THEN
+    IF(_tamed1_id IS NULL AND _tamed2_id IS NULL AND _tamed3_id IS NULL AND _tamed4_id IS NULL AND _tamed5_id IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'There has to be at least 1 frontliner';
+    END IF;
+
+    IF(_tamed1_id IS NOT NULL AND IFNULL((SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed1_id),TRUE)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '1st frontliner doesn''t belong to player';
     END IF;
-    IF(_tamed2_id IS NOT NULL AND (SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed2_id)) THEN
+    IF(_tamed2_id IS NOT NULL AND IFNULL((SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed2_id),TRUE)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '2nd frontliner doesn''t belong to player';
     END IF;
-    IF(_tamed4_id IS NOT NULL AND (SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed3_id)) THEN
+    IF(_tamed4_id IS NOT NULL AND IFNULL((SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed3_id),TRUE)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '3rd frontliner doesn''t belong to player';
     END IF;
-    IF(_tamed4_id IS NOT NULL AND (SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed4_id)) THEN
+    IF(_tamed4_id IS NOT NULL AND IFNULL((SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed4_id),TRUE)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '4th frontliner doesn''t belong to player';
     END IF;
-    IF(_tamed5_id IS NOT NULL AND (SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed5_id)) THEN
+    IF(_tamed5_id IS NOT NULL AND IFNULL((SELECT tamed_monsters.player_id != _player_id FROM tamed_monsters WHERE tamed_monsters.id=_tamed5_id),TRUE)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '5th frontliner doesn''t belong to player';
     END IF;
 
@@ -1734,6 +1766,30 @@ BEGIN
 	frontliners (player_id, tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id)
 	VALUES (_player_id, _tamed1_id, _tamed2_id, _tamed3_id, _tamed4_id, _tamed5_id);
     END IF;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE set_frontliners_by_sid(IN _sid VARCHAR(36), IN _tamed1_id INT(11), IN _tamed2_id INT(11), IN _tamed3_id INT(11), IN _tamed4_id INT(11), IN _tamed5_id INT(11))
+BEGIN
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+    
+    CALL check_player(_sid);
+    CALL set_frontliners(
+	(SELECT is_authenticated(_sid)), 
+	_tamed1_id, 
+	_tamed2_id,
+	_tamed3_id,
+	_tamed4_id,
+	_tamed5_id
+    );
 
     COMMIT;
 END$$

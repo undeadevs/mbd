@@ -1,0 +1,15 @@
+meta {
+  name: Get Single
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:5321/api/players/18/tamed-monsters/15
+  body: none
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}

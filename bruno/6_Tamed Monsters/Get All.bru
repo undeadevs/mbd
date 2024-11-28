@@ -1,0 +1,20 @@
+meta {
+  name: Get All
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:5321/api/players/18/tamed-monsters?filter:element=%25re
+  body: none
+  auth: none
+}
+
+params:query {
+  filter:element: %re
+  ~filter: element: nature
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}

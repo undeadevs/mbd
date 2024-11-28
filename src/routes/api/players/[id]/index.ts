@@ -2,6 +2,8 @@ import { callProc } from "@/services/db";
 import { Hono } from "hono";
 import type { Player } from "../types";
 import { HTTPException } from "hono/http-exception";
+import { tamedMonstersRouter } from "./tamed-monsters";
+import { frontlinersRouter } from "./frontliners";
 
 const router = new Hono();
 
@@ -39,5 +41,8 @@ router.delete("/", async (c) => {
       },
    });
 });
+
+router.route("/tamed-monsters", tamedMonstersRouter);
+router.route("/frontliners", frontlinersRouter);
 
 export { router as singlePlayerRouter };

@@ -40,6 +40,7 @@ export async function callProc<TResult extends (unknown | RowDataPacket)[]>(
       results: [] as TypedResult<TResult>,
       resultHeader: null as ResultSetHeader | null,
    };
+   console.log(procRes);
    if (!Array.isArray(procRes)) {
       res.resultHeader = procRes;
       return res;
