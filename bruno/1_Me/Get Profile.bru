@@ -1,0 +1,15 @@
+meta {
+  name: Get Profile
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:5321/api/me
+  body: none
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}

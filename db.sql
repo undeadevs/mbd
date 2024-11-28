@@ -1342,6 +1342,27 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
+CREATE OR REPLACE PROCEDURE delete_admin(_sid VARCHAR(36), _id INT(11))
+BEGIN
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_admin(_sid);
+
+    IF((SELECT id FROM users WHERE id=_id AND role="admin") IS NULL) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Admin does not exist';
+    END IF;
+
+    DELETE FROM users WHERE users.id=_id AND role="admin";
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
 CREATE OR REPLACE PROCEDURE delete_player(_sid VARCHAR(36), _id INT(11))
 BEGIN
     declare exit handler for sqlexception
@@ -1358,6 +1379,29 @@ BEGIN
     END IF;
 
     DELETE FROM users WHERE users.id=_id AND role="player";
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE get_profile(_sid VARCHAR(36))
+BEGIN
+    DECLARE l_user_id INT(11) DEFAULT NULL;
+
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_authenticated(_sid);
+    SELECT is_authenticated(_sid) INTO l_user_id;
+
+    SELECT id, username, role
+    FROM users
+    WHERE id=l_user_id;
+
     COMMIT;
 END$$
 DELIMITER ;
@@ -1390,6 +1434,27 @@ BEGIN
     username = IFNULL(_username, username), 
     password = IF(_password IS NOT NULL, PASSWORD(_password), password)
     WHERE users.id=l_user_id;
+    COMMIT;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE OR REPLACE PROCEDURE delete_self(_sid VARCHAR(36))
+BEGIN
+    DECLARE l_user_id INT(11) DEFAULT NULL;
+
+    declare exit handler for sqlexception
+    begin
+	rollback;
+	RESIGNAL;
+    end;
+    START TRANSACTION;
+
+    CALL check_authenticated(_sid);
+    SELECT is_authenticated(_sid) INTO l_user_id;
+
+    DELETE FROM users WHERE id=l_user_id AND role="admin";
+
     COMMIT;
 END$$
 DELIMITER ;
