@@ -28,6 +28,10 @@ export async function callProc<TResult extends (unknown | RowDataPacket)[]>(
       procParams,
    );
 
+   if (Bun.env.NODE_ENV !== "production") {
+      console.log("SQL Result:", procRes);
+   }
+
    type TypedResult<TTypes> = TTypes extends [infer TFirst, ...infer TRest]
       ? [TFirst[], ...TypedResult<TRest>]
       : TTypes extends [infer TFirst]
@@ -40,7 +44,6 @@ export async function callProc<TResult extends (unknown | RowDataPacket)[]>(
       results: [] as TypedResult<TResult>,
       resultHeader: null as ResultSetHeader | null,
    };
-   console.log(procRes);
    if (!Array.isArray(procRes)) {
       res.resultHeader = procRes;
       return res;
