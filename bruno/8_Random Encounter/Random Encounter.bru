@@ -1,0 +1,15 @@
+meta {
+  name: Random Encounter
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:5321/api/battles/random-encounter
+  body: none
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}

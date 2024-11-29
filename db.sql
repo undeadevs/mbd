@@ -1554,8 +1554,10 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE random_encounter(IN _player_id INT(11), OUT battle_id INT(11))
+CREATE OR REPLACE PROCEDURE random_encounter(IN _sid VARCHAR(36))
 BEGIN
+    DECLARE l_player_id INT(11) DEFAULT NULL;
+
     declare exit handler for sqlexception
     begin
 	rollback;
@@ -1563,15 +1565,14 @@ BEGIN
     end;
     START TRANSACTION;
 
-    IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
-    END IF;
+    CALL check_player(_sid);
+    SELECT is_authenticated(_sid) INTO l_player_id;
 
-    IF((SELECT COALESCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=_player_id) IS NULL) THEN
+    IF((SELECT COALESCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=l_player_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
-    IF((SELECT COUNT(battles.id) > 0 FROM battles WHERE (battles.player1_id = _player_id OR battles.player2_id = _player_id) AND battles.status="ongoing")) THEN
+    IF((SELECT COUNT(battles.id) > 0 FROM battles WHERE (battles.player1_id = l_player_id OR battles.player2_id = l_player_id) AND battles.status="ongoing")) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'You already have an ongoing battle';
     END IF;
 
@@ -1579,14 +1580,14 @@ BEGIN
     FROM tamed_monsters
     JOIN monsters ON monsters.id = tamed_monsters.monster_id
     JOIN frontliners ON tamed_monsters.id IN (frontliners.tamed1_id, frontliners.tamed2_id, frontliners.tamed3_id, frontliners.tamed4_id, frontliners.tamed5_id)
-    WHERE tamed_monsters.player_id=_player_id;
+    WHERE tamed_monsters.player_id=l_player_id;
 
     SET @rand1 = RAND();
     SET @rand2 = RAND();
     INSERT INTO battles (type, player1_id, enemy_monster_id, enemy_monster_xp, enemy_monster_health, status, xp_gain_percentage)
     SELECT 
     "pve",
-    _player_id,
+    l_player_id,
     monsters.id,
     CAST(ROUND(@rand1*(monsters.base_next_xp + @avg_xp) + @rand2*@max_next_xp*0.01) AS INT),
     monsters.base_health * CAST(ROUND(@rand1*(monsters.base_next_xp + @avg_xp) + @rand2*@max_next_xp*0.01) AS INT),
@@ -1597,7 +1598,7 @@ BEGIN
     monsters.base_next_xp < (@avg_next_xp + @max_next_xp) 
     ORDER BY RAND()*monsters.base_next_xp LIMIT 1;
 
-    SELECT LAST_INSERT_ID() INTO battle_id;
+    SELECT LAST_INSERT_ID() AS battle_id;
 
     COMMIT;
 END$$
