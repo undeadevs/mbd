@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { callProc } from "@/services/db";
 import type { User } from "./types";
 import { HTTPException } from "hono/http-exception";
+import { setFrontlinersRouter } from "./set-frontliners";
 
 const router = new Hono();
 
@@ -53,5 +54,7 @@ router.delete("/", async (c) => {
       },
    });
 });
+
+router.route("/set-frontliners", setFrontlinersRouter);
 
 export { router as meRouter };
