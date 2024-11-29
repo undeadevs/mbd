@@ -1663,7 +1663,8 @@ BEGIN
     player1_id,
     player2_id,
     status
-    FROM battle_requests WHERE (player1_id=l_player_id OR player2_id=l_player_id);
+    FROM battle_requests WHERE (player1_id=l_player_id OR player2_id=l_player_id)
+    ORDER BY requested_at DESC;
 
     COMMIT;
 END$$
