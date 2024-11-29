@@ -2001,6 +2001,19 @@ BEGIN
 	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
 	END IF;
 
+	IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id) IS NULL) THEN
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle does not exist';
+	END IF;
+	IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id AND (battles.player1_id = _player_id OR battles.player2_id = _player_id)) IS NULL) THEN
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player is not in this battle';
+	END IF;
+	IF((SELECT battles.status != "ongoing" FROM battles WHERE battles.id=_battle_id)) THEN
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle is already done';
+	END IF;
+	IF((SELECT tamed_monsters.id FROM tamed_monsters WHERE tamed_monsters.id=_tamed_id AND tamed_monsters.player_id = _player_id) IS NULL) THEN
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player does not own this tamed monster';
+	END IF;
+
 	SELECT 
 	battles.player1_id=_player_id 
 	INTO l_is_player1
@@ -2031,8 +2044,10 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE take_turn(IN _battle_id INT(11), IN _player_id INT(11), IN _tamed_id INT(11), IN _action ENUM("skill", "block", "forfeit"), IN _monster_skill_id INT(11))
+CREATE OR REPLACE PROCEDURE take_turn(IN _sid VARCHAR(36), IN _battle_id INT(11), IN _tamed_id INT(11), IN _action TEXT, IN _monster_skill_id INT(11))
 proc_turn:BEGIN
+    DECLARE l_player_id INT(11) DEFAULT NULL;
+
     DECLARE l_battle_type ENUM("pve", "pvp") DEFAULT "pve";
     DECLARE l_is_player1 BOOLEAN DEFAULT FALSE;
     DECLARE l_against_tamed_id INT(11) DEFAULT NULL;
@@ -2051,20 +2066,20 @@ proc_turn:BEGIN
     end;
     START TRANSACTION;
 
-    IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
-    END IF;
+    CALL check_player(_sid);
+
+    SELECT is_authenticated(_sid) INTO l_player_id;
 
     IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle does not exist';
     END IF;
-    IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id AND (battles.player1_id = _player_id OR battles.player2_id = _player_id)) IS NULL) THEN
+    IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id AND (battles.player1_id = l_player_id OR battles.player2_id = l_player_id)) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player is not in this battle';
     END IF;
     IF((SELECT battles.status != "ongoing" FROM battles WHERE battles.id=_battle_id)) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle is already done';
     END IF;
-    IF((SELECT tamed_monsters.id FROM tamed_monsters WHERE tamed_monsters.id=_tamed_id AND tamed_monsters.player_id = _player_id) IS NULL) THEN
+    IF((SELECT tamed_monsters.id FROM tamed_monsters WHERE tamed_monsters.id=_tamed_id AND tamed_monsters.player_id = l_player_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player does not own this tamed monster';
     END IF;
     IF(
@@ -2072,7 +2087,7 @@ proc_turn:BEGIN
 	    SELECT frontliners.id
 	    FROM frontliners 
 	    WHERE 
-	    frontliners.player_id=_player_id AND 
+	    frontliners.player_id=l_player_id AND 
 	    (
 		frontliners.tamed1_id=_tamed_id OR 
 		frontliners.tamed2_id=_tamed_id OR 
@@ -2097,6 +2112,10 @@ proc_turn:BEGIN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Tamed monster is not alive';
     END IF;
 
+    IF(_action IS NULL OR _action NOT IN ("skill", "block", "forfeit")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `action` has to be either "skill", "block", or "forfeit"';
+    END IF;
+
     IF(
 	_action="skill" AND
 	(
@@ -2114,7 +2133,7 @@ proc_turn:BEGIN
     END IF;
 
     SELECT 
-    battles.player1_id=_player_id, battles.type, IF(battles.type="pve", battles.enemy_monster_id, NULL) 
+    battles.player1_id=l_player_id, battles.type, IF(battles.type="pve", battles.enemy_monster_id, NULL) 
     INTO l_is_player1, l_battle_type, l_against_monster_id
     FROM battles WHERE battles.id = _battle_id;
 
@@ -2134,7 +2153,7 @@ proc_turn:BEGIN
 	VALUES (_battle_id, IF(l_is_player1, "player1", "player2"), _tamed_id, "block", NULL);
 
 	SELECT SLEEP(1);
-	CALL _initiate_enemy_turn(_battle_id, _player_id, _tamed_id, TRUE);
+	CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, TRUE);
 	LEAVE proc_turn;
     END IF;
 
@@ -2151,11 +2170,11 @@ proc_turn:BEGIN
 	UPDATE tamed_monsters
 	SET current_health=max_health
 	WHERE
-	tamed_monsters.id = (SELECT tamed1_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	tamed_monsters.id = (SELECT tamed2_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	tamed_monsters.id = (SELECT tamed3_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	tamed_monsters.id = (SELECT tamed4_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	tamed_monsters.id = (SELECT tamed5_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1);
+	tamed_monsters.id = (SELECT tamed1_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	tamed_monsters.id = (SELECT tamed2_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	tamed_monsters.id = (SELECT tamed3_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	tamed_monsters.id = (SELECT tamed4_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	tamed_monsters.id = (SELECT tamed5_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1);
 
 	IF(l_battle_type="pvp") THEN
 	    SET @otherp_id = NULL;
@@ -2214,7 +2233,7 @@ proc_turn:BEGIN
 	UPDATE tamed_monsters SET current_health=LEAST(max_health, current_health+l_skill_value) WHERE tamed_monsters.id=_tamed_id;
 
 	SELECT SLEEP(1);
-	CALL _initiate_enemy_turn(_battle_id, _player_id, _tamed_id, TRUE);
+	CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, TRUE);
 	LEAVE proc_turn;
     END IF;
 
@@ -2318,11 +2337,11 @@ proc_turn:BEGIN
 	    current_health=max_health,
 	    xp=xp*(SELECT 1+battles.xp_gain_percentage FROM battles WHERE battles.id=_battle_id LIMIT 1)
 	    WHERE
-	    tamed_monsters.id = (SELECT tamed1_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed2_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed3_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed4_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed5_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1);
+	    tamed_monsters.id = (SELECT tamed1_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed2_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed3_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed4_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed5_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1);
 
 	    SET @otherp_id = NULL;
 	    SET @otherp_id = (
@@ -2356,20 +2375,20 @@ proc_turn:BEGIN
 	    UPDATE tamed_monsters
 	    SET xp=xp*(SELECT 1+battles.xp_gain_percentage FROM battles WHERE battles.id=_battle_id LIMIT 1)
 	    WHERE
-	    tamed_monsters.id = (SELECT tamed1_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed2_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed3_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed4_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1) OR
-	    tamed_monsters.id = (SELECT tamed5_id FROM frontliners WHERE frontliners.player_id=_player_id LIMIT 1);
+	    tamed_monsters.id = (SELECT tamed1_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed2_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed3_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed4_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1) OR
+	    tamed_monsters.id = (SELECT tamed5_id FROM frontliners WHERE frontliners.player_id=l_player_id LIMIT 1);
 
 	    CALL tame_monster(
 		(SELECT battles.enemy_monster_id FROM battles WHERE battles.id=_battle_id), 
-		_player_id, 
+		l_player_id, 
 		(SELECT battles.enemy_monster_xp FROM battles WHERE battles.id=_battle_id)
 	    );
 	ELSE
 	    SELECT SLEEP(1);
-	    CALL _initiate_enemy_turn(_battle_id, _player_id, _tamed_id, FALSE);
+	    CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, FALSE);
 	END IF;
     END IF;
     COMMIT;
