@@ -332,7 +332,13 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT skills.*
+	SELECT 
+	skills.id,
+	skills.name,
+	skills.element,
+	skills.type,
+	skills.value,
+	skills.turn_cooldown
 	FROM skills
 	WHERE
 	IF(f_id IS NULL, TRUE, skills.id = f_id) AND
@@ -340,7 +346,13 @@ BEGIN
 	IF(f_element IS NULL, TRUE, skills.element LIKE f_element) AND
 	IF(f_type IS NULL, TRUE, skills.type LIKE f_type);
     ELSE
-	SELECT skills.*
+	SELECT 
+	skills.id,
+	skills.name,
+	skills.element,
+	skills.type,
+	skills.value,
+	skills.turn_cooldown
 	FROM skills
 	WHERE
 	IF(f_id IS NULL, TRUE, skills.id = f_id) AND
@@ -401,14 +413,26 @@ BEGIN
     SELECT l_total_pages total_pages, l_has_prev has_prev, l_has_next has_next;
 
     IF(l_limit = 0) THEN
-	SELECT monsters.*
+	SELECT 
+	monsters.id,
+	monsters.name,
+	monsters.element,
+	monsters.base_health,
+	monsters.base_next_xp,
+	monsters.max_xp
 	FROM monsters
 	WHERE
 	IF(f_id IS NULL, TRUE, monsters.id = f_id) AND
 	IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, monsters.element LIKE f_element);
     ELSE
-	SELECT monsters.*
+	SELECT 
+	monsters.id,
+	monsters.name,
+	monsters.element,
+	monsters.base_health,
+	monsters.base_next_xp,
+	monsters.max_xp
 	FROM monsters
 	WHERE
 	IF(f_id IS NULL, TRUE, monsters.id = f_id) AND
@@ -696,7 +720,17 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT tamed_monsters.*, monsters.name, monsters.element
+	SELECT 
+	tamed_monsters.id, 
+	tamed_monsters.monster_id, 
+	tamed_monsters.player_id, 
+	tamed_monsters.acquired_at, 
+	tamed_monsters.level, 
+	tamed_monsters.xp, 
+	tamed_monsters.max_health, 
+	tamed_monsters.current_health, 
+	monsters.name, 
+	monsters.element
 	FROM tamed_monsters
 	JOIN monsters ON monsters.id = tamed_monsters.monster_id
 	WHERE
@@ -705,7 +739,17 @@ BEGIN
 	IF(f_name IS NULL, TRUE, monsters.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, monsters.element LIKE f_element);
     ELSE
-	SELECT tamed_monsters.*, monsters.name, monsters.element
+	SELECT 
+	tamed_monsters.id, 
+	tamed_monsters.monster_id, 
+	tamed_monsters.player_id, 
+	tamed_monsters.acquired_at, 
+	tamed_monsters.level, 
+	tamed_monsters.xp, 
+	tamed_monsters.max_health, 
+	tamed_monsters.current_health, 
+	monsters.name, 
+	monsters.element
 	FROM tamed_monsters
 	JOIN monsters ON monsters.id = tamed_monsters.monster_id
 	WHERE
@@ -736,7 +780,15 @@ BEGIN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
-    SELECT * FROM frontliners WHERE frontliners.player_id = _player_id;
+    SELECT 
+    frontliners.id,
+    frontliners.player_id,
+    frontliners.tamed1_id,
+    frontliners.tamed2_id,
+    frontliners.tamed3_id,
+    frontliners.tamed4_id,
+    frontliners.tamed5_id
+    FROM frontliners WHERE frontliners.player_id = _player_id;
     COMMIT;
 END$$
 DELIMITER ;
@@ -744,7 +796,10 @@ DELIMITER ;
 DELIMITER $$
 CREATE OR REPLACE PROCEDURE get_battles(
     IN _limit INT(11), 
-    IN _page INT(11)
+    IN _page INT(11),
+    IN f_id INT(11),
+    IN f_player_id INT(11),
+    IN f_status TEXT
 )
 BEGIN
     DECLARE l_limit INT DEFAULT 10;
@@ -766,7 +821,11 @@ BEGIN
     SET l_page = IFNULL(_page, 1);
 
     SELECT COUNT(battles.id) INTO l_count
-    FROM battles;
+    FROM battles
+    WHERE
+    IF(f_id IS NULL, TRUE, battles.id = f_id) AND
+    IF(f_player_id IS NULL, TRUE, battles.player1_id = f_player_id OR battles.player2_id = f_player_id) AND
+    IF(f_status IS NULL, TRUE, battles.status LIKE f_status);
 
     SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
     IF(l_total_pages = 0) THEN
@@ -781,15 +840,51 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT battles.*, p1.username player1_username, p2.username player2_username
-	FROM battles
-	LEFT JOIN users p1 ON p1.id=battles.player1_id
-	LEFT JOIN users p2 ON p2.id=battles.player2_id;
-    ELSE
-	SELECT battles.*, p1.username player1_username, p2.username player2_username
+	SELECT 
+	battles.id, 
+	battles.started_at, 
+	battles.ended_at, 
+	battles.type, 
+	battles.player1_id, 
+	battles.player2_id, 
+	battles.enemy_monster_id, 
+	battles.enemy_monster_xp, 
+	battles.enemy_monster_health, 
+	battles.status, 
+	battles.xp_gain_percentage, 
+	p1.username player1_username, 
+	p2.username player2_username
 	FROM battles
 	LEFT JOIN users p1 ON p1.id=battles.player1_id
 	LEFT JOIN users p2 ON p2.id=battles.player2_id
+	WHERE
+	IF(f_id IS NULL, TRUE, battles.id = f_id) AND
+	IF(f_player_id IS NULL, TRUE, battles.player1_id = f_player_id OR battles.player2_id = f_player_id) AND
+	IF(f_status IS NULL, TRUE, battles.status LIKE f_status)
+	ORDER BY battles.started_at DESC;
+    ELSE
+	SELECT 
+	battles.id, 
+	battles.started_at, 
+	battles.ended_at, 
+	battles.type, 
+	battles.player1_id, 
+	battles.player2_id, 
+	battles.enemy_monster_id, 
+	battles.enemy_monster_xp, 
+	battles.enemy_monster_health, 
+	battles.status, 
+	battles.xp_gain_percentage, 
+	p1.username player1_username, 
+	p2.username player2_username
+	FROM battles
+	LEFT JOIN users p1 ON p1.id=battles.player1_id
+	LEFT JOIN users p2 ON p2.id=battles.player2_id
+	WHERE
+	IF(f_id IS NULL, TRUE, battles.id = f_id) AND
+	IF(f_player_id IS NULL, TRUE, battles.player1_id = f_player_id OR battles.player2_id = f_player_id) AND
+	IF(f_status IS NULL, TRUE, battles.status LIKE f_status)
+	ORDER BY battles.started_at DESC
 	LIMIT l_limit
 	OFFSET l_offset;
     END IF;
@@ -839,84 +934,29 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT * 
-	FROM turns
-	WHERE turns.battle_id = _battle_id;
-    ELSE
-	SELECT *
+	SELECT 
+	id,
+	battle_id,
+	type,
+	tamed_id,
+	action,
+	monster_skill_id,
+	created_at
 	FROM turns
 	WHERE turns.battle_id = _battle_id
-	LIMIT l_limit
-	OFFSET l_offset;
-    END IF;
-    COMMIT;
-END$$
-DELIMITER ;
-
-DELIMITER $$
-CREATE OR REPLACE PROCEDURE get_player_battle_stats(
-    IN _player_id INT(11),
-    IN _limit INT(11), 
-    IN _page INT(11)
-)
-BEGIN
-    DECLARE l_limit INT DEFAULT 10;
-    DECLARE l_page INT DEFAULT 1;
-    DECLARE l_count INT DEFAULT 0;
-    DECLARE l_total_pages INT DEFAULT 0;
-    DECLARE l_offset INT DEFAULT 0;
-    DECLARE l_has_prev BOOLEAN DEFAULT FALSE;
-    DECLARE l_has_next BOOLEAN DEFAULT FALSE;
-
-    declare exit handler for sqlexception
-    begin
-	rollback;
-	RESIGNAL;
-    end;
-    START TRANSACTION;
-
-    IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
-    END IF;
-
-
-    SET l_limit = IFNULL(_limit, 10);
-    SET l_page = IFNULL(_page, 1);
-
-    SELECT COUNT(battles.id) INTO l_count
-    FROM battles
-    WHERE 
-    _player_id=battles.player1_id OR
-    _player_id=battles.player2_id;
-
-    SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
-    IF(l_total_pages = 0) THEN
-	SET l_page = 0;
-    END IF;
-
-    SET l_offset = IF(l_page <= 0, 0, (l_page - 1) * l_limit);
-
-    SET l_has_prev = l_page > 1;
-    SET l_has_next = l_page < l_total_pages;
-
-    SELECT l_total_pages, l_has_prev, l_has_next;
-
-    IF(l_limit = 0) THEN
-	SELECT battles.*, p1.username player1_username, p2.username player2_username
-	FROM battles
-	LEFT JOIN users p1 ON p1.id=battles.player1_id
-	LEFT JOIN users p2 ON p2.id=battles.player2_id
-	WHERE
-	_player_id=battles.player1_id OR
-	_player_id=battles.player2_id;
+	ORDER BY turns.created_at DESC;
     ELSE
-	SELECT battles.*, p1.username player1_username, p2.username player2_username
-	FROM battles
-	LEFT JOIN users p1 ON p1.id=battles.player1_id
-	LEFT JOIN users p2 ON p2.id=battles.player2_id
-	WHERE
-	_player_id=battles.player1_id OR
-	_player_id=battles.player2_id
+	SELECT 
+	id,
+	battle_id,
+	type,
+	tamed_id,
+	action,
+	monster_skill_id,
+	created_at
+	FROM turns
+	WHERE turns.battle_id = _battle_id
+	ORDER BY turns.created_at DESC
 	LIMIT l_limit
 	OFFSET l_offset;
     END IF;
@@ -1527,7 +1567,7 @@ BEGIN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
     END IF;
 
-    IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=!_player_id) IS NULL) THEN
+    IF((SELECT COALESCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=_player_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
@@ -1564,8 +1604,10 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE request_battle(IN _player1_id INT(11), IN _player2_id INT(11))
+CREATE OR REPLACE PROCEDURE request_battle(IN _sid VARCHAR(36), IN _player2_id INT(11))
 BEGIN
+    DECLARE l_player1_id INT(11) DEFAULT NULL;
+
     declare exit handler for sqlexception
     begin
 	rollback;
@@ -1573,31 +1615,34 @@ BEGIN
     end;
     START TRANSACTION;
 
-    IF((SELECT users.id FROM users WHERE users.id = _player1_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
-    END IF;
+    CALL check_player(_sid);
+    SELECT is_authenticated(_sid) INTO l_player1_id;
 
     IF((SELECT users.id FROM users WHERE users.id = _player2_id AND users.role = "player") IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Requested user is not player';
     END IF;
 
-    IF(_player1_id = _player2_id) THEN
+    IF(l_player1_id = _player2_id) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Cannot request a battle with yourself';
     END IF;
 
-    IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=!_player_id) IS NULL) THEN
+    IF((SELECT COALESCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=l_player1_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
-    INSERT INTO battle_requests (player1_id, player2_id, status) VALUES(_player1_id, _player2_id, "pending");
+    INSERT INTO battle_requests (player1_id, player2_id, status) VALUES(l_player1_id, _player2_id, "pending");
+
+    SELECT LAST_INSERT_ID() AS request_id;
 
     COMMIT;
 END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE get_battle_requests(IN _player_id INT(11))
+CREATE OR REPLACE PROCEDURE get_battle_requests(IN _sid VARCHAR(36))
 BEGIN
+    DECLARE l_player_id INT(11) DEFAULT NULL;
+
     declare exit handler for sqlexception
     begin
 	rollback;
@@ -1605,49 +1650,59 @@ BEGIN
     end;
     START TRANSACTION;
 
-    IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
-    END IF;
+    CALL check_player(_sid);
+    SELECT is_authenticated(_sid) INTO l_player_id;
 
+    UPDATE battle_requests SET status="expired" WHERE (player1_id=l_player_id OR player2_id=l_player_id) AND status="pending" AND CURRENT_TIMESTAMP() >= expires_at;
 
-    UPDATE battle_requests SET status="expired" WHERE (player1_id=_player_id OR player2_id=_player_id) AND status="pending" AND CURRENT_TIMESTAMP() >= expires_at;
-
-    SELECT * FROM battle_requests WHERE (player1_id=_player_id OR player2_id=_player_id);
+    SELECT
+    id,
+    requested_at,
+    expires_at,
+    player1_id,
+    player2_id,
+    status
+    FROM battle_requests WHERE (player1_id=l_player_id OR player2_id=l_player_id);
 
     COMMIT;
 END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE reply_battle_request(IN _request_id INT(11), IN _player_id INT(11), IN _reply ENUM("accepted", "rejected"), OUT battle_id INT(11))
+CREATE OR REPLACE PROCEDURE reply_battle_request(IN _sid VARCHAR(36), IN _request_id INT(11), IN _reply TEXT)
 BEGIN
+    DECLARE l_player_id INT(11) DEFAULT NULL;
+
     declare exit handler for sqlexception
     begin
 	rollback;
 	RESIGNAL;
     end;
     START TRANSACTION;
+
+    CALL check_player(_sid);
+    SELECT is_authenticated(_sid) INTO l_player_id;
 
     IF((SELECT id FROM battle_requests WHERE id=_request_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle request does not exist';
     END IF;
 
-    IF((SELECT id FROM battle_requests WHERE id=_request_id AND player1_id=_player_id) IS NULL) THEN
+    IF((SELECT id FROM battle_requests WHERE id=_request_id AND player1_id=l_player_id) IS NOT NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player cannot accept their own battle request';
     END IF;
 
-    IF((SELECT id FROM battle_requests WHERE id=_request_id AND player2_id=_player_id) IS NULL) THEN
+    IF((SELECT id FROM battle_requests WHERE id=_request_id AND player2_id=l_player_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player is not the requested player';
     END IF;
 
-    IF((SELECT COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=_player_id) IS NULL) THEN
+    IF((SELECT COALESCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) FROM frontliners WHERE player_id=l_player_id) IS NULL) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player have to set atleast one frontliner';
     END IF;
 
     IF(
 	(
 	    SELECT 
-	    COERCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) 
+	    COALESCE(tamed1_id, tamed2_id, tamed3_id, tamed4_id, tamed5_id) 
 	    FROM frontliners 
 	    WHERE 
 	    player_id=(
@@ -1658,6 +1713,10 @@ BEGIN
 	) IS NULL
     ) THEN
 	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Requesting player have to set atleast one frontliner';
+    END IF;
+
+    IF(_reply NOT IN ("accepted", "rejected")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `reply` has to be either "accepted" or "rejected"';
     END IF;
 
     UPDATE battle_requests SET status="expired" WHERE id=_request_id AND status="pending" AND CURRENT_TIMESTAMP() >= expires_at;
@@ -1671,7 +1730,7 @@ BEGIN
 
     UPDATE battle_requests SET status=_reply WHERE id=_request_id AND status="pending";
     IF(_reply = "rejected") THEN
-	SET battle_id = NULL;
+	SELECT NULL AS battle_id;
     ELSE
 	SELECT AVG(tamed_monsters.xp), MAX(tamed_monsters.xp) INTO @avg1_xp, @max1_xp
 	FROM tamed_monsters
@@ -1688,7 +1747,7 @@ BEGIN
 	INSERT INTO battles (type, player1_id, player2_id, status, xp_gain_percentage)
 	VALUES ("pvp", @player1_id, @player2_id, "ongoing", (@avg1_xp + @avg2_xp) / (@max1_xp + @max2_xp));
 
-	SELECT LAST_INSERT_ID() INTO battle_id;
+	SELECT LAST_INSERT_ID() AS battle_id;
     END IF;
     
     COMMIT;
@@ -2407,15 +2466,6 @@ BEGIN
     -- (value * ef * (1 - was_blocked*(1 - ef*0.75)))
     RETURN l_skill_value * l_effectiveness * (1 - _was_blocked * (1 - l_effectiveness * 0.75));
 
-END$$
-DELIMITER ;
-
-DELIMITER $$
-CREATE OR REPLACE FUNCTION check_battle_status(
-    IN _battle_id INT(11)
-) RETURNS ENUM("ongoing", "player1", "player2", "enemy") 
-BEGIN
-    RETURN (SELECT battles.status FROM battles WHERE battles.id=_battle_id);  
 END$$
 DELIMITER ;
 

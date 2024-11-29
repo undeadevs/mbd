@@ -1,0 +1,30 @@
+meta {
+  name: Request
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:5321/api/battles/requests
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid}}
+}
+
+body:json {
+  {
+    "player2_id": 18
+  }
+}
+
+script:post-response {
+  if(res.status===200){
+    const requestId = res.body.data.request_id;
+  
+    bru.setVar("requestId",requestId);
+  }
+  
+}

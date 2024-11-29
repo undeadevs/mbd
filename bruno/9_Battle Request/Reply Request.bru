@@ -1,0 +1,21 @@
+meta {
+  name: Reply Request
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:5321/api/battles/requests/{{requestId}}
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid2}}
+}
+
+body:json {
+  {
+    "reply": "rejected"
+  }
+}
