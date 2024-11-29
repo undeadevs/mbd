@@ -11,8 +11,8 @@ const router = new Hono();
 router.get("/", async (c) => {
    const { results } = await callProc<[PaginationInfo, Battle]>(
       "get_battles",
-      c.req.query("limit") ?? null,
-      c.req.query("page") ?? null,
+      c.req.query("limit") ? Number(c.req.query("limit")) : null,
+      c.req.query("page") ? Number(c.req.query("page")) : null,
       null,
       c.req.query("filter:player_id") ?? null,
       c.req.query("filter:status") ?? null,
