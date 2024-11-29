@@ -1,0 +1,23 @@
+meta {
+  name: Take (P2)
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:5321/api/battles/3/turns
+  body: json
+  auth: none
+}
+
+headers {
+  X-Session-Id: {{sid2}}
+}
+
+body:json {
+  {
+    "tamed_id": 16,
+    "action": "skill",
+    "monster_skill_id": 20
+  }
+}

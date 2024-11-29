@@ -1987,8 +1987,10 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE get_turn_skills(IN _battle_id INT(11), IN _player_id INT(11), IN _tamed_id INT(11))
+CREATE OR REPLACE PROCEDURE get_turn_skills(IN _sid VARCHAR(36), IN _battle_id INT(11), IN _tamed_id INT(11))
 BEGIN
+	DECLARE l_player_id INT(11) DEFAULT NULL;
+
 	DECLARE l_is_player1 BOOLEAN DEFAULT FALSE;
 
 	declare exit handler for sqlexception
@@ -1998,25 +2000,53 @@ BEGIN
 	end;
 	START TRANSACTION;
 
-	IF((SELECT users.id FROM users WHERE users.id = _player_id AND users.role = "player") IS NULL) THEN
-	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'User is not player';
-	END IF;
+	CALL check_player(_sid);
+	SELECT is_authenticated(_sid) INTO l_player_id;
 
 	IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id) IS NULL) THEN
 	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle does not exist';
 	END IF;
-	IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id AND (battles.player1_id = _player_id OR battles.player2_id = _player_id)) IS NULL) THEN
+	IF((SELECT battles.id FROM battles WHERE battles.id=_battle_id AND (battles.player1_id = l_player_id OR battles.player2_id = l_player_id)) IS NULL) THEN
 	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player is not in this battle';
 	END IF;
 	IF((SELECT battles.status != "ongoing" FROM battles WHERE battles.id=_battle_id)) THEN
 	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Battle is already done';
 	END IF;
-	IF((SELECT tamed_monsters.id FROM tamed_monsters WHERE tamed_monsters.id=_tamed_id AND tamed_monsters.player_id = _player_id) IS NULL) THEN
+	IF((SELECT tamed_monsters.id FROM tamed_monsters WHERE tamed_monsters.id=_tamed_id AND tamed_monsters.player_id = l_player_id) IS NULL) THEN
 	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Player does not own this tamed monster';
+	END IF;
+	IF(
+	    (
+		SELECT frontliners.id
+		FROM frontliners 
+		WHERE 
+		frontliners.player_id=l_player_id AND 
+		(
+		    frontliners.tamed1_id=_tamed_id OR 
+		    frontliners.tamed2_id=_tamed_id OR 
+		    frontliners.tamed3_id=_tamed_id OR 
+		    frontliners.tamed4_id=_tamed_id OR 
+		    frontliners.tamed5_id=_tamed_id
+		)
+	    ) IS NULL
+	) THEN
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Tamed monster is not in frontliners';
+	END IF;
+
+	IF(
+	    IFNULL(
+	    (
+		SELECT tamed_monsters.current_health <= 0
+		FROM tamed_monsters 
+		WHERE tamed_monsters.id=_tamed_id
+	    ),
+	    TRUE)
+	) THEN
+	    SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Tamed monster is not alive';
 	END IF;
 
 	SELECT 
-	battles.player1_id=_player_id 
+	battles.player1_id=l_player_id 
 	INTO l_is_player1
 	FROM battles WHERE battles.id = _battle_id;
 

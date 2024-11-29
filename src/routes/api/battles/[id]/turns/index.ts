@@ -1,5 +1,6 @@
 import { callProc } from "@/services/db";
 import { Hono } from "hono";
+import { turnSkillsRouter } from "./available-skills";
 
 const router = new Hono();
 
@@ -17,5 +18,7 @@ router.post("/", async (c) => {
 
    return c.json({ data: { message: "Successfully take turn" } });
 });
+
+router.route("available-skills", turnSkillsRouter);
 
 export { router as turnsRouter };

@@ -8,6 +8,7 @@ const router = new Hono();
 
 router.get("/", async (c) => {
    const playerId = c.req.param("id") ?? null;
+
    const { results } = await callProc<[PaginationInfo, TamedMonster]>(
       "get_tamed_monsters",
       playerId,
