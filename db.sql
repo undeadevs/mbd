@@ -896,7 +896,9 @@ DELIMITER $$
 CREATE OR REPLACE PROCEDURE get_turns(
     IN _battle_id INT(11),
     IN _limit INT(11), 
-    IN _page INT(11)
+    IN _page INT(11),
+    IN f_id INT(11),
+    IN f_type TEXT
 )
 BEGIN
     DECLARE l_limit INT DEFAULT 10;
@@ -919,7 +921,10 @@ BEGIN
 
     SELECT COUNT(turns.id) INTO l_count
     FROM turns
-    WHERE turns.battle_id = _battle_id;
+    WHERE 
+    turns.battle_id = _battle_id AND
+    IF(f_id IS NULL, TRUE, turns.id = f_id) AND
+    IF(f_type IS NULL, TRUE, turns.type LIKE f_type);
 
     SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
     IF(l_total_pages = 0) THEN
@@ -943,7 +948,10 @@ BEGIN
 	monster_skill_id,
 	created_at
 	FROM turns
-	WHERE turns.battle_id = _battle_id
+	WHERE 
+	turns.battle_id = _battle_id AND
+	IF(f_id IS NULL, TRUE, turns.id = f_id) AND
+	IF(f_type IS NULL, TRUE, turns.type LIKE f_type)
 	ORDER BY turns.created_at DESC;
     ELSE
 	SELECT 
@@ -955,7 +963,10 @@ BEGIN
 	monster_skill_id,
 	created_at
 	FROM turns
-	WHERE turns.battle_id = _battle_id
+	WHERE 
+	turns.battle_id = _battle_id AND
+	IF(f_id IS NULL, TRUE, turns.id = f_id) AND
+	IF(f_type IS NULL, TRUE, turns.type LIKE f_type)
 	ORDER BY turns.created_at DESC
 	LIMIT l_limit
 	OFFSET l_offset;
@@ -1640,9 +1651,22 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE get_battle_requests(IN _sid VARCHAR(36))
+CREATE OR REPLACE PROCEDURE get_battle_requests(
+    IN _sid VARCHAR(36),
+    IN _limit INT(11), 
+    IN _page INT(11),
+    IN f_id INT(11)
+)
 BEGIN
     DECLARE l_player_id INT(11) DEFAULT NULL;
+
+    DECLARE l_limit INT DEFAULT 10;
+    DECLARE l_page INT DEFAULT 1;
+    DECLARE l_count INT DEFAULT 0;
+    DECLARE l_total_pages INT DEFAULT 0;
+    DECLARE l_offset INT DEFAULT 0;
+    DECLARE l_has_prev BOOLEAN DEFAULT FALSE;
+    DECLARE l_has_next BOOLEAN DEFAULT FALSE;
 
     declare exit handler for sqlexception
     begin
@@ -1656,15 +1680,56 @@ BEGIN
 
     UPDATE battle_requests SET status="expired" WHERE (player1_id=l_player_id OR player2_id=l_player_id) AND status="pending" AND CURRENT_TIMESTAMP() >= expires_at;
 
-    SELECT
-    id,
-    requested_at,
-    expires_at,
-    player1_id,
-    player2_id,
-    status
-    FROM battle_requests WHERE (player1_id=l_player_id OR player2_id=l_player_id)
-    ORDER BY requested_at DESC;
+    SET l_limit = IFNULL(_limit, 10);
+    SET l_page = IFNULL(_page, 1);
+
+    SELECT COUNT(battle_requests.id) INTO l_count
+    FROM battle_requests 
+    WHERE 
+    (player1_id=l_player_id OR player2_id=l_player_id) AND
+    IF(f_id IS NULL, TRUE, battle_requests.id = f_id);
+
+    SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
+    IF(l_total_pages = 0) THEN
+	SET l_page = 0;
+    END IF;
+
+    SET l_offset = IF(l_page <= 0, 0, (l_page - 1) * l_limit);
+
+    SET l_has_prev = l_page > 1;
+    SET l_has_next = l_page < l_total_pages;
+
+    SELECT l_total_pages, l_has_prev, l_has_next;
+
+    IF(l_limit = 0) THEN
+	SELECT
+	id,
+	requested_at,
+	expires_at,
+	player1_id,
+	player2_id,
+	status
+	FROM battle_requests 
+	WHERE 
+	(player1_id=l_player_id OR player2_id=l_player_id) AND
+	IF(f_id IS NULL, TRUE, battle_requests.id = f_id)
+	ORDER BY requested_at DESC;
+    ELSE
+	SELECT 
+	id,
+	requested_at,
+	expires_at,
+	player1_id,
+	player2_id,
+	status
+	FROM battle_requests 
+	WHERE 
+	(player1_id=l_player_id OR player2_id=l_player_id) AND
+	IF(f_id IS NULL, TRUE, battle_requests.id = f_id)
+	ORDER BY requested_at DESC
+	LIMIT l_limit
+	OFFSET l_offset;
+    END IF;
 
     COMMIT;
 END$$
@@ -1987,11 +2052,25 @@ END$$
 DELIMITER ;
 
 DELIMITER $$
-CREATE OR REPLACE PROCEDURE get_turn_skills(IN _sid VARCHAR(36), IN _battle_id INT(11), IN _tamed_id INT(11))
+CREATE OR REPLACE PROCEDURE get_turn_skills(
+    IN _sid VARCHAR(36), 
+    IN _battle_id INT(11), 
+    IN _tamed_id INT(11),
+    IN _limit INT(11), 
+    IN _page INT(11)
+)
 BEGIN
 	DECLARE l_player_id INT(11) DEFAULT NULL;
 
 	DECLARE l_is_player1 BOOLEAN DEFAULT FALSE;
+
+	DECLARE l_limit INT DEFAULT 10;
+	DECLARE l_page INT DEFAULT 1;
+	DECLARE l_count INT DEFAULT 0;
+	DECLARE l_total_pages INT DEFAULT 0;
+	DECLARE l_offset INT DEFAULT 0;
+	DECLARE l_has_prev BOOLEAN DEFAULT FALSE;
+	DECLARE l_has_next BOOLEAN DEFAULT FALSE;
 
 	declare exit handler for sqlexception
 	begin
@@ -2050,7 +2129,10 @@ BEGIN
 	INTO l_is_player1
 	FROM battles WHERE battles.id = _battle_id;
 
-	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	SET l_limit = IFNULL(_limit, 10);
+	SET l_page = IFNULL(_page, 1);
+
+	SELECT COUNT(monster_skills.id) INTO l_count
 	FROM monster_skills
 	JOIN tamed_monsters ON tamed_monsters.monster_id=monster_skills.monster_id
 	JOIN skills ON skills.id=monster_skills.skill_id
@@ -2069,6 +2151,62 @@ BEGIN
 	    )
 	    LIKE "%1%"
 	);
+
+	SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
+	IF(l_total_pages = 0) THEN
+	    SET l_page = 0;
+	END IF;
+
+	SET l_offset = IF(l_page <= 0, 0, (l_page - 1) * l_limit);
+
+	SET l_has_prev = l_page > 1;
+	SET l_has_next = l_page < l_total_pages;
+
+	SELECT l_total_pages, l_has_prev, l_has_next;
+
+	IF(l_limit = 0) THEN
+	    SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	    FROM monster_skills
+	    JOIN tamed_monsters ON tamed_monsters.monster_id=monster_skills.monster_id
+	    JOIN skills ON skills.id=monster_skills.skill_id
+	    WHERE
+	    tamed_monsters.id = _tamed_id AND
+	    get_level_from_xp(monster_skills.monster_id, tamed_monsters.xp) >= monster_skills.level_to_attain AND
+	    NOT(
+		IFNULL(
+		    (SELECT 
+			SUBSTRING(GROUP_CONCAT(turns.monster_skill_id=monster_skills.id ORDER BY turns.created_at DESC SEPARATOR ""), 1, skills.turn_cooldown)
+			FROM turns
+			WHERE
+			turns.battle_id=_battle_id AND 
+			type=IF(l_is_player1, "player1", "player2")),
+		    "0"
+		)
+		LIKE "%1%"
+	    );
+	ELSE
+	    SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	    FROM monster_skills
+	    JOIN tamed_monsters ON tamed_monsters.monster_id=monster_skills.monster_id
+	    JOIN skills ON skills.id=monster_skills.skill_id
+	    WHERE
+	    tamed_monsters.id = _tamed_id AND
+	    get_level_from_xp(monster_skills.monster_id, tamed_monsters.xp) >= monster_skills.level_to_attain AND
+	    NOT(
+		IFNULL(
+		    (SELECT 
+			SUBSTRING(GROUP_CONCAT(turns.monster_skill_id=monster_skills.id ORDER BY turns.created_at DESC SEPARATOR ""), 1, skills.turn_cooldown)
+			FROM turns
+			WHERE
+			turns.battle_id=_battle_id AND 
+			type=IF(l_is_player1, "player1", "player2")),
+		    "0"
+		)
+		LIKE "%1%"
+	    )
+	    LIMIT l_limit
+	    OFFSET l_offset;
+	END IF;
 
 	COMMIT;
 END$$

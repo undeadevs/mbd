@@ -1,11 +1,11 @@
 meta {
   name: Available Skills
   type: http
-  seq: 3
+  seq: 5
 }
 
 get {
-  url: http://localhost:5321/api/battles/3/turns/available-skills?tamed_id=30
+  url: http://localhost:5321/api/battles/{{battleId}}/turns/available-skills?tamed_id=30
   body: none
   auth: none
 }

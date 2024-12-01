@@ -1,7 +1,7 @@
 meta {
   name: Reply Request
   type: http
-  seq: 4
+  seq: 5
 }
 
 post {
@@ -18,4 +18,13 @@ body:json {
   {
     "reply": "accepted"
   }
+}
+
+script:post-response {
+  if(res.status===200){
+    const battleId = res.body.data.battle_id;
+  
+    bru.setVar("battleId",battleId);
+  }
+  
 }

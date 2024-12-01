@@ -5,11 +5,11 @@ meta {
 }
 
 get {
-  url: http://localhost:5321/api/players?filter:username=%25pl%25
+  url: http://localhost:5321/api/battles/{{battleId}}/turns
   body: none
   auth: none
 }
 
 params:query {
-  "filter:username": %pl%
+  ~limit: 1
 }

@@ -1,11 +1,11 @@
 meta {
   name: Take
   type: http
-  seq: 1
+  seq: 3
 }
 
 post {
-  url: http://localhost:5321/api/battles/3/turns
+  url: http://localhost:5321/api/battles/{{battleId}}/turns
   body: json
   auth: none
 }
