@@ -70,16 +70,9 @@ Turns
 
 ### Others
 
-Battle Statistics
-
 Leaderboards
-
-- This week
-- This month
-- This year
-- All time (default)
-- By Max XP+Winning Battles (default)
-- By Max XP
-- By Winning Battles
+- By Win/Lose Rate
+- By Highest XP
+- By Highest XP+Win/Lose Rate (default)
 - By Acquired Monsters
 - By Attained Skills

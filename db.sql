@@ -977,10 +977,15 @@ DELIMITER ;
 
 DELIMITER $$
 CREATE OR REPLACE PROCEDURE get_leaderboard(
+    IN _type TEXT,
     IN _limit INT(11), 
-    IN _page INT(11)
+    IN _page INT(11),
+    IN f_player_id INT(11),
+    IN f_player_username TEXT
 )
 BEGIN
+    DECLARE l_type TEXT DEFAULT "win_rate_highest_xp";
+
     DECLARE l_limit INT DEFAULT 10;
     DECLARE l_page INT DEFAULT 1;
     DECLARE l_count INT DEFAULT 0;
@@ -996,11 +1001,20 @@ BEGIN
     end;
     START TRANSACTION;
 
+    SET l_type = IFNULL(_type, l_type);
+    IF(l_type NOT IN ("win_rate", "highest_xp", "win_rate_highest_xp", "acquired_monsters", "attained_skills")) THEN
+	SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = 'Field `type` has to be either "win_rate", "highest_xp", "win_rate_highest_xp", "acquired_monsters", or "attained_skills"';
+    END IF;
+
     SET l_limit = IFNULL(_limit, 10);
     SET l_page = IFNULL(_page, 1);
 
     SELECT COUNT(users.id) INTO l_count
-    FROM users;
+    FROM users
+    WHERE 
+    users.role="player" AND
+    IF(f_player_id IS NULL, TRUE, users.id = f_player_id) AND
+    IF(f_player_username IS NULL, TRUE, users.username LIKE f_player_username);
 
     SET l_total_pages = IF(l_limit=0, 1, CEIL(l_count / l_limit));
     IF(l_total_pages = 0) THEN
@@ -1015,35 +1029,95 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT 
-	users.id, 
-	users.username, 
-	(SELECT COUNT(battles.id) FROM battles 
-	WHERE 
-	IF(battles.player1_id=users.id, battles.status="player1", IF(battles.player2_id=users.id, battles.status="player2", FALSE))
-	) win_count,
-	(SELECT COUNT(battles.id) FROM battles 
-	WHERE 
-	IF(battles.player1_id=users.id, battles.status="player2" OR battles.status="enemy", IF(battles.player2_id=users.id, battles.status="player1", TRUE))
-	) lose_count
-	FROM users
-	ORDER BY win_count DESC;
+	IF(l_type="win_rate") THEN
+	    SELECT * FROM leaderboard_win_rate 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username);
+	ELSEIF(l_type="highest_xp") THEN
+	    SELECT * FROM leaderboard_highest_xp 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username);
+	ELSEIF(l_type="win_rate_highest_xp") THEN
+	    SELECT 
+	    leaderboard_win_rate.id,
+	    leaderboard_win_rate.username,
+	    leaderboard_win_rate.win_count,
+	    leaderboard_win_rate.lose_count,
+	    leaderboard_win_rate.battle_count,
+	    leaderboard_win_rate.win_rate,
+	    leaderboard_highest_xp.tamed_monster_id,
+	    leaderboard_highest_xp.tamed_monster_xp
+	    FROM leaderboard_win_rate 
+	    LEFT JOIN leaderboard_highest_xp ON leaderboard_highest_xp.id = leaderboard_win_rate.id
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, leaderboard_win_rate.id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, leaderboard_win_rate.username LIKE f_player_username)
+	    ORDER BY 
+	    leaderboard_win_rate.win_rate DESC,
+	    leaderboard_highest_xp.tamed_monster_xp DESC;
+	ELSEIF(l_type="acquired_monsters") THEN
+	    SELECT * FROM leaderboard_acquired_monsters 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username);
+	ELSEIF(l_type="attained_skills") THEN
+	    SELECT * FROM leaderboard_attained_skills 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username);
+	END IF;
     ELSE
-	SELECT
-	users.id, 
-	users.username, 
-	(SELECT COUNT(battles.id) FROM battles 
-	WHERE 
-	IF(battles.player1_id=users.id, battles.status="player1", IF(battles.player2_id=users.id, battles.status="player2", FALSE))
-	) win_count,
-	(SELECT COUNT(battles.id) FROM battles 
-	WHERE 
-	IF(battles.player1_id=users.id, battles.status="player2" OR battles.status="enemy", IF(battles.player2_id=users.id, battles.status="player1", TRUE))
-	) lose_count
-	FROM users
-	ORDER BY win_count DESC
-	LIMIT l_limit
-	OFFSET l_offset;
+	IF(l_type="win_rate") THEN
+	    SELECT * FROM leaderboard_win_rate 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username)
+	    LIMIT l_limit 
+	    OFFSET l_offset;
+	ELSEIF(l_type="highest_xp") THEN
+	    SELECT * FROM leaderboard_highest_xp 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username)
+	    LIMIT l_limit 
+	    OFFSET l_offset;
+	ELSEIF(l_type="win_rate_highest_xp") THEN
+	    SELECT 
+	    leaderboard_win_rate.id,
+	    leaderboard_win_rate.username,
+	    leaderboard_win_rate.win_count,
+	    leaderboard_win_rate.lose_count,
+	    leaderboard_win_rate.battle_count,
+	    leaderboard_win_rate.win_rate,
+	    leaderboard_highest_xp.tamed_monster_id,
+	    leaderboard_highest_xp.tamed_monster_xp
+	    FROM leaderboard_win_rate 
+	    LEFT JOIN leaderboard_highest_xp ON leaderboard_highest_xp.id = leaderboard_win_rate.id
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, leaderboard_win_rate.id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, leaderboard_win_rate.username LIKE f_player_username)
+	    ORDER BY 
+	    leaderboard_win_rate.win_rate DESC,
+	    leaderboard_highest_xp.tamed_monster_xp DESC
+	    LIMIT l_limit 
+	    OFFSET l_offset;
+	ELSEIF(l_type="acquired_monsters") THEN
+	    SELECT * FROM leaderboard_acquired_monsters 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username)
+	    LIMIT l_limit OFFSET 
+	    l_offset;
+	ELSEIF(l_type="attained_skills") THEN
+	    SELECT * FROM leaderboard_attained_skills 
+	    WHERE 
+	    IF(f_player_id IS NULL, TRUE, id = f_player_id) AND
+	    IF(f_player_username IS NULL, TRUE, username LIKE f_player_username)
+	    LIMIT l_limit 
+	    OFFSET l_offset;
+	END IF;
     END IF;
     COMMIT;
 END$$
@@ -2657,6 +2731,124 @@ BEGIN
 
 END$$
 DELIMITER ;
+
+-- VIEWS
+CREATE OR REPLACE VIEW leaderboard_win_rate AS
+SELECT 
+IF(
+    COUNT(battles.id)=0,
+    NULL,
+    ROW_NUMBER() OVER(
+	ORDER BY (
+	    AVG(
+		IF(
+		    battles.player1_id=users.id, 
+		    IF(battles.status="player1", 1, 0),
+		    IF(battles.status="player2", 1, 0)
+		)
+	    )
+	) DESC
+    )
+) AS rank,
+users.id,
+users.username,
+IF(
+    COUNT(battles.id)=0,
+    0,
+    SUM(
+	IF(
+	    battles.player1_id=users.id, 
+	    IF(battles.status="player1", 1, 0),
+	    IF(battles.status="player2", 1, 0)
+	)
+    ) 
+) AS win_count,
+IF(
+    COUNT(battles.id)=0,
+    0,
+    SUM(
+	IF(
+	    battles.player1_id=users.id, 
+	    IF(battles.status="player1", 0, 1),
+	    IF(battles.status="player2", 0, 1)
+	)
+    ) 
+) AS lose_count,
+COUNT(battles.id) AS battle_count,
+IF(
+    COUNT(battles.id)=0,
+    NULL,
+    AVG(
+	IF(
+	    battles.player1_id=users.id, 
+	    IF(battles.status="player1", 1, 0),
+	    IF(battles.status="player2", 1, 0)
+	)
+    )*100 
+) AS win_rate
+FROM users
+LEFT JOIN battles ON users.id IN (battles.player1_id, battles.player2_id)
+WHERE
+users.role="player"
+GROUP BY users.id
+ORDER BY 
+AVG(
+    IF(
+	battles.player1_id=users.id, 
+	IF(battles.status="player1", 1, 0),
+	IF(battles.status="player2", 1, 0)
+    )
+) DESC;
+
+CREATE OR REPLACE VIEW leaderboard_highest_xp AS
+SELECT 
+ROW_NUMBER() OVER (ORDER BY tamed_monster_xp DESC) AS rank,
+id,
+username,
+tamed_monster_id,
+tamed_monster_xp
+FROM (
+    SELECT
+    users.id,
+    users.username,
+    ROW_NUMBER() OVER (PARTITION BY users.id ORDER BY tamed_monsters.xp DESC) AS rn,
+    tamed_monsters.id AS tamed_monster_id,
+    tamed_monsters.xp AS tamed_monster_xp
+    FROM users
+    LEFT JOIN tamed_monsters ON tamed_monsters.player_id=users.id
+    WHERE
+    users.role="player"
+) _lb
+WHERE
+rn=1;
+
+CREATE OR REPLACE VIEW leaderboard_acquired_monsters AS
+SELECT
+ROW_NUMBER() OVER (ORDER BY COUNT(tamed_monsters.id) DESC) AS rank,
+users.id,
+users.username,
+COUNT(tamed_monsters.id) AS acquired_monsters_count
+FROM users
+LEFT JOIN tamed_monsters ON tamed_monsters.player_id=users.id
+WHERE
+users.role="player"
+GROUP BY users.id;
+
+CREATE OR REPLACE VIEW leaderboard_attained_skills AS
+SELECT
+ROW_NUMBER() OVER (ORDER BY COUNT(monster_skills.id) DESC) AS rank,
+users.id,
+users.username,
+COUNT(monster_skills.id) AS attained_skills_count
+FROM users
+LEFT JOIN tamed_monsters ON tamed_monsters.player_id=users.id
+LEFT JOIN monster_skills ON (
+    monster_skills.monster_id = tamed_monsters.monster_id AND
+    monster_skills.level_to_attain <= tamed_monsters.xp
+)
+WHERE
+users.role="player"
+GROUP BY users.id;
 
 -- DUMMY DATA
 INSERT INTO `users` (`id`, `username`, `password`, `role`) VALUES
