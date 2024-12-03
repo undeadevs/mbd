@@ -13,9 +13,3 @@ delete {
 headers {
   X-Session-Id: {{sid}}
 }
-
-script:post-response {
-  if(res.status===200){
-    bru.deleteVar("sid");
-  }
-}

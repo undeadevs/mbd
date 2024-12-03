@@ -495,7 +495,7 @@ BEGIN
     SELECT l_total_pages, l_has_prev, l_has_next;
 
     IF(l_limit = 0) THEN
-	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown, monster_skills.level_to_attain
+	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.type, skills.value, skills.turn_cooldown, monster_skills.level_to_attain
 	FROM monster_skills
 	JOIN skills ON skills.id=monster_skills.skill_id
 	WHERE
@@ -504,7 +504,7 @@ BEGIN
 	IF(f_name IS NULL, TRUE, skills.name LIKE f_name) AND
 	IF(f_element IS NULL, TRUE, skills.element LIKE f_element);
     ELSE
-	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown, monster_skills.level_to_attain
+	SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.type, skills.value, skills.turn_cooldown, monster_skills.level_to_attain
 	FROM monster_skills
 	JOIN skills ON skills.id=monster_skills.skill_id
 	WHERE
@@ -2239,7 +2239,7 @@ BEGIN
 	SELECT l_total_pages, l_has_prev, l_has_next;
 
 	IF(l_limit = 0) THEN
-	    SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	    SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.type, skills.value, skills.turn_cooldown
 	    FROM monster_skills
 	    JOIN tamed_monsters ON tamed_monsters.monster_id=monster_skills.monster_id
 	    JOIN skills ON skills.id=monster_skills.skill_id
@@ -2259,7 +2259,7 @@ BEGIN
 		LIKE "%1%"
 	    );
 	ELSE
-	    SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.value, skills.turn_cooldown
+	    SELECT monster_skills.id, monster_skills.skill_id, skills.name, skills.element, skills.type, skills.value, skills.turn_cooldown
 	    FROM monster_skills
 	    JOIN tamed_monsters ON tamed_monsters.monster_id=monster_skills.monster_id
 	    JOIN skills ON skills.id=monster_skills.skill_id

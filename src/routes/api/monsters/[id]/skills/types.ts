@@ -5,6 +5,7 @@ export type MonsterSkill = {
    skill_id: Skill["id"];
    name: Skill["name"];
    element: Skill["element"];
+   type: Skill["type"];
    value: Skill["value"];
    turn_cooldown: Skill["turn_cooldown"];
    level_to_attain: number;
