@@ -30,7 +30,9 @@ router.get("/", async (c) => {
 router.post("/", async (c) => {
    const sid = c.req.header("X-Session-Id") ?? null;
    const body = await c.req.json();
-   await callProc(
+   const { results } = await callProc<
+      [{ action: Turn["action"]; value: number | null }]
+   >(
       "take_turn",
       sid,
       c.req.param("id") ?? null,
@@ -39,7 +41,7 @@ router.post("/", async (c) => {
       body.monster_skill_id ?? null,
    );
 
-   return c.json({ data: { message: "Successfully take turn" } });
+   return c.json({ data: { turn: results[0][0] } });
 });
 
 router.route("/available-skills", turnSkillsRouter);

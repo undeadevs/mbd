@@ -2395,14 +2395,21 @@ proc_turn:BEGIN
 	INSERT INTO turns (battle_id, type, tamed_id, action, monster_skill_id)
 	VALUES (_battle_id, IF(l_is_player1, "player1", "player2"), _tamed_id, "block", NULL);
 
-	SELECT SLEEP(1);
-	CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, TRUE);
-	LEAVE proc_turn;
+	-- Turn result
+	SELECT "block" AS action, NULL AS value;
+
+	IF(l_battle_type="pve") THEN
+	    CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, TRUE);
+	    LEAVE proc_turn;
+	END IF;
     END IF;
 
     IF(_action="forfeit") THEN
 	INSERT INTO turns (battle_id, type, tamed_id, action, monster_skill_id)
 	VALUES (_battle_id, IF(l_is_player1, "player1", "player2"), _tamed_id, "forfeit", NULL);
+
+	-- Turn result
+	SELECT "forfeit" AS action, NULL AS value;
 
 	UPDATE battles 
 	SET 
@@ -2473,11 +2480,23 @@ proc_turn:BEGIN
 	INSERT INTO turns (battle_id, type, tamed_id, action, monster_skill_id)
 	VALUES (_battle_id, IF(l_is_player1, "player1", "player2"), _tamed_id, "skill", _monster_skill_id);
 
+	-- Turn result
+	SELECT "skill" AS action, skills.value
+	FROM skills
+	WHERE EXISTS(
+	    SELECT 1
+	    FROM monster_skills
+	    WHERE
+	    monster_skills.id = _monster_skill_id AND
+	    monster_skills.skill_id = skills.id
+	);
+
 	UPDATE tamed_monsters SET current_health=LEAST(max_health, current_health+l_skill_value) WHERE tamed_monsters.id=_tamed_id;
 
-	SELECT SLEEP(1);
-	CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, TRUE);
-	LEAVE proc_turn;
+	IF(l_battle_type="pve") THEN
+	    CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, TRUE);
+	    LEAVE proc_turn;
+	END IF;
     END IF;
 
     IF(l_battle_type="pvp") THEN
@@ -2542,6 +2561,9 @@ proc_turn:BEGIN
 
     INSERT INTO turns (battle_id, type, tamed_id, action, monster_skill_id)
     VALUES (_battle_id, IF(l_is_player1, "player1", "player2"), _tamed_id, _action, _monster_skill_id);
+
+    -- Turn result
+    SELECT "skill" AS action, l_skill_damage AS value;
 
     IF (l_battle_type="pvp") THEN
 	UPDATE tamed_monsters SET current_health=GREATEST(0, current_health - CEIL(l_skill_damage)) WHERE tamed_monsters.id = l_against_tamed_id;
@@ -2630,7 +2652,6 @@ proc_turn:BEGIN
 		(SELECT battles.enemy_monster_xp FROM battles WHERE battles.id=_battle_id)
 	    );
 	ELSE
-	    SELECT SLEEP(1);
 	    CALL _initiate_enemy_turn(_battle_id, l_player_id, _tamed_id, FALSE);
 	END IF;
     END IF;
